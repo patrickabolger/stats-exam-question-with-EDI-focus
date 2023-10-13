@@ -1,0 +1,67 @@
+---
+title: "Area under the curve"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("exams")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r RandomRTGeneration, results = "hide", echo=F}
+avgComm <- round(runif(1, 22, 30),2)
+avgCommSD <- round(runif(1,4,8),2)
+minutes <- 
+if (runif(1)<0.5) {
+  floor(runif(1, min=avgComm+3, max=avgComm+9))
+} else {
+  floor(runif(1, min=avgComm-9, max=avgComm-3))
+}
+#minutes <- round(runif(1, 16, 34),0)
+zminutes <- round((minutes-avgComm)/avgCommSD,2)
+
+pct <- if (zminutes <= 0) {
+  round(pnorm(zminutes, 0, 1),5)*100
+} else {
+  round(pnorm(zminutes, 0, 1, lower.tail=F),5)*100
+}
+
+zTableArea <- 50-round(pct,2)
+
+question <- paste0("Let's say that the average employee in the USA spends $",fmt(avgComm,2),"$ minutes commuting to work each day. Assume that the distribution of commute times is normal with a standard deviation of $",fmt(avgCommSD,2),"$ minutes. What percentage of U.S. employees spends ",ifelse(minutes <= avgComm,"fewer","more")," than $",fmt(minutes,0),"$ minutes per day commuting? Use the online [*z*-table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#normal-z--tables) for reference, and answer to two decimal points (e.g., 10.30 [but don't include the percent sign])")
+
+solution_pt1 <- paste0("First, we need to find the *z*-score for ",fmt(minutes,1)," in a normal distribution with a mean of ",fmt(avgComm,2)," and a standard deviation of ",fmt(avgCommSD,2),". This is computed as follows:")
+
+## Step 2 is straight LaTeX under "Solution"
+                       
+solution_pt3 <-
+if (zminutes >= 0) {
+  paste0("Your *z*-score was greater than zero. So the proportion greater than that *z*-score is obtained by looking up ",fmt(zminutes,2)," in the online [*z*-table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#normal-z--tables).  Refer to *z*-table ***(rightward)***. The proportion you find here will be the proportion **to the right** of, or greater than your *z*-score of ",fmt(zminutes,2),". Multiply times 100 for the percent. So the percentage of U.S. employees who spend more than ",fmt(minutes,0)," minutes per day commuting (if the mean is ",fmt(avgComm,2)," and the standard deviation is ",fmt(avgCommSD,2),") is ",fmt(50-zTableArea,2),"%.")
+} else {
+  paste0("Your *z*-score was less than zero. So the proportion less than that *z*-score is obtained by looking up the value in the online [*z*-table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#normal-z--tables). Refer to *z*-table ***(leftward)***. The proportion you find in the left-tailed table will be the proportion **to the left** of ",fmt(abs(zminutes),2),". Multiply times 100 for the percent. So the percentage of U.S. employees who spend less than ",fmt(minutes,0)," minutes per day commuting (if the mean is ",fmt(avgComm,2)," and the standard deviation is ",fmt(avgCommSD,2),") is ",fmt(50-zTableArea,2),"%.")
+}
+
+```
+
+# Question
+
+`r question`
+
+# Solution
+
+`r solution_pt1`
+
+$$z_i=\frac{x_i-\overline{x}}{s}=\frac{`r minutes`-`r avgComm`}{`r avgCommSD`}=\frac{`r round((minutes-avgComm),2)`}{`r avgCommSD`}=`r round(((minutes-avgComm)/avgCommSD),2)`$$
+
+`r solution_pt3`
+
+# Meta-information
+
+extype: num exsolution: `r round(pct,2)` extol: 0.01 exname: CommuteTime

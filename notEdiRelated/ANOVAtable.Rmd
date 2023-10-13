@@ -1,0 +1,540 @@
+---
+title: "ANOVA table"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("knitr", "exams", "magrittr", "kableExtra", "tibble", "dplyr", "ggplot2", "car")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r DataGeneration, results = "hide"}
+# DATA AND DATA-OBJECT GENERATION
+Humb <- tibble(`Message Received`="Humblebrag", `Likeability of Sender` = rnorm(sample(c(30:40),1), 3.32*100, 1.23*100))
+Brag <- tibble( `Message Received`="Brag", `Likeability of Sender` = rnorm(sample(c(30:40),1), 3.99*100, 1.28*100), )
+Comp <- tibble( `Message Received`="Complaint", `Likeability of Sender` = rnorm(sample(c(30:40),1), 4.24*100, 0.88*100))
+
+tib_X100 <- bind_rows(Humb, Brag, Comp)
+tib <- tib_X100 %>% 
+  mutate(`Likeability of Sender` = 
+           case_when(`Likeability of Sender` > 600 ~ 7,
+                     `Likeability of Sender` > 500 ~ 6,
+                     `Likeability of Sender` > 400 ~ 5,
+                     `Likeability of Sender` > 300 ~ 4,
+                     `Likeability of Sender` > 200 ~ 3,
+                     `Likeability of Sender` > 100 ~ 2,
+                     TRUE ~ 1)
+         )
+rm(list=c("tib_X100", "Humb", "Brag", "Comp"))
+```
+
+```{r CreateDataSummary, results = "hide", message=F, warning=F}
+# Create the data summary
+GrpDesc <- tib %>% 
+  group_by(`Message Received`) %>%
+  summarize(n = length(`Likeability of Sender`), 
+            M = mean(`Likeability of Sender`),
+            SD = sd(`Likeability of Sender`),
+            SE = SD/sqrt(n),
+            `lower 95% CI` = M-1.96*SE,
+            `upper 95% CI` = M+1.96*SE
+            ) 
+```
+
+# Question
+
+You replicate *Study 5* from Sezer, Gino, & Norton (2018; Study 5). The
+original study had participants (*N* = 305) send each other text
+messages that included either a *humblebrag* (i.e., "I am so exhausted
+from getting elected to leadership positions"), or a *direct brag*
+(i.e., "I get elected to leadership positions), or a *complaint*
+(i.e.,"I am so exhausted"). The message receivers then rated how
+*likeable*, *competent*, and *sincere* the senders seemed (1 = *not at
+all* ... 7 = *very much*). Your replication is restricted to
+`Likeability`. Descriptive statistics of each text-receiver group, along
+with how they rated their respective text-message senders are in the
+table and figure below.
+
+------------------------------------------------------------------------
+
+```{r DisplayDescriptivesTable, fig.cap='Descriptive statistics for *Likeability of Sender* as rated by the groups that received the different types of messages.'}
+# Display the data summary in a table
+GrpDesc %>% select(1:4) %>%
+kable(digits=c(0,0,4,4), align = "lccc") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+------------------------------------------------------------------------
+
+<br/>
+
+**Calculations**
+
+You run a oneway ANOVA on your replication data and get the following
+*Sums of Squares* (*between* and *within*), but nothing else about the
+ANOVA table that you need. Your task is to complete the table given what
+you know about the study, the sum of squares in the table, and your
+knowledge of the *F*-ratio. Each dash represents a statistic that you
+will need to answer the questions further down. Notice that you do
+***not*** need to calculate the *p*-value. At each stage of your
+calculation, round to ***FOUR*** decimal places. But your final answer
+should be rounded to ***THREE*** decimal places.
+
+------------------------------------------------------------------------
+
+```{r Model, results = "hide"}
+# Build the model and format the ANOVA table
+model <- lm(`Likeability of Sender` ~ `Message Received`, 
+             data = tib,
+             contrasts = list(`Message Received`="contr.sum"))
+FTable <- car::Anova(model, type=3)
+
+FTable$"Mean Squares" <- c("-", "-", "-")
+
+options(knitr.kable.NA='')
+colnames(FTable) <- c("Sum of Squares", "Degrees of Freedom", "F-ratio", "p-value", "Mean Squares")
+rownames(FTable) <- c("(Intercept)", "Between", "Within")
+
+FTable <- FTable %>% select(c(1,2,5,3,4))
+```
+
+```{r CreateSparseTable, results="hide"}
+# blank out key statistics from the table
+SparseFTable <- FTable
+SparseFTable$`Degrees of Freedom` <- c(NA,"-","-")
+SparseFTable$`F-ratio` <- c(NA,"-",NA)
+SparseFTable$`p-value` <- c(NA,NA,NA)
+```
+
+```{r DisplaySparseTable}
+# Display the blanked-out table
+SparseFTable[-1,] %>% kable(
+  digits=c(4,0,4,4,4), align = "ccccc", format="pandoc", caption = "ANOVA table"
+  )
+```
+
+------------------------------------------------------------------------
+
+```{r SeparateStatsObjects, results = "hide"}
+# Create easily accessible names for different stats in order to make the markdown easier
+SSb <- FTable$`Sum of Squares`[2]
+SSb <- round(SSb,4)
+
+SSw <- FTable$`Sum of Squares`[3]
+SSw <- round(SSw,4)
+
+DFb <- FTable$`Degrees of Freedom`[2]
+DFw <- FTable$`Degrees of Freedom`[3]
+
+MSb <- round(SSb/DFb,4)
+
+MSw <- round(SSw/DFw,4)
+
+Fratio <- round(MSb/MSw,3)
+
+Pvalue <- FTable$`p-value`[2]
+Pvalue <- round(Pvalue,4)
+
+FCritVal <- qf(.05, DFb, DFw, lower.tail=FALSE)
+
+G <- nlevels(as.factor(tib$`Message Received`))
+
+N <- nrow(tib)
+```
+
+```{r QuestionVectorSize}
+questions <- character(6)
+solutions <- logical(6)
+explanations <- character(6)
+```
+
+**TRUE/FALSE Questions**
+
+Now that you have calculated these statistics, answer the questions
+below. Check the box to indicate **TRUE**, and leave it blank to
+indicate **FALSE**.
+
+You will need to refer to [this online
+table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#f-table-alpha-05)
+for the critical values of *F*.
+
+You can also make reference to the [formulas and ANOVA tables for Unit
+3](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#f-ratio-for-a-oneway-anova).
+
+------------------------------------------------------------------------
+
+<br/>
+
+```{r QuestionGeneration}
+# Question 1 (degrees of freedom between)
+
+# Create false degrees of freedom between
+fls_DFb <- sample(c(G-2,G,G+1,G+2),1)
+
+# Generate Question 1
+if(runif(1) > 0.5) {
+  questions[1] <- paste0("The *degrees of freedom between* are ***less*** than $",fmt(fls_DFb, 0),"$.")
+  solutions[1] <- DFb < fls_DFb
+  explanations[1] <- paste0("The correct answer is ***",solutions[1],"***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$. And $",fmt(DFb,0),"$ ",ifelse(solutions[1],"***is*** ", "is ***not*** "),"less than $",fmt(fls_DFb,0),"$.")
+} else {
+  questions[1] <- paste0("The *degrees of freedom between* are ***greater*** than $",fmt(fls_DFb, 0),"$.")
+  solutions[1] <- DFb > fls_DFb
+  explanations[1] <- paste0("The correct answer is ***",solutions[1],"***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$. And $",fmt(DFb,0),"$ ",ifelse(solutions[1],"***is*** ", "is ***not*** "),"greater than $",fmt(fls_DFb,0),"$.")
+  }
+
+# Question 2  (degrees of freedom within)
+
+# Create false degrees of freedom within
+fls_DFw <- sample(c((N-(G-2)),(N-(G-1)),(N-(G+1)),(N-(G+2)),(N-(G+3)),(N-(G+4))),1)
+
+# Generate Question 2
+if(runif(1) > 0.5) {
+  questions[2] <- paste0("The *degrees of freedom within* are ***less*** than $",fmt(fls_DFw,0),"$.")
+  solutions[2] <- DFw < fls_DFw
+  explanations[2] <- paste0("The correct answer is ***",solutions[2],"***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is (*N*-*G*). Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$. And $",fmt(DFw,0),"$ ",ifelse(solutions[2],"***is*** ", "is ***not*** "),"less than $",fmt(fls_DFw,0),"$.")
+} else {
+  questions[2] <- paste0("The *degrees of freedom within* are ***greater*** than $",fmt(fls_DFw,0),"$.")
+  solutions[2] <- DFw > fls_DFw
+  explanations[2] <- paste0("The correct answer is ***",solutions[2],"***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is *N*-*G*. Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$. And $",fmt(DFw,0),"$ ",ifelse(solutions[2],"***is*** ", "is ***not*** "),"greater than $",fmt(fls_DFw,0),"$.")
+  }
+
+# Question 3 (mean squares between)
+
+# Create false Mean Squares between 
+fls_MSb <- SSb/sample(c(DFb-1,DFb+1),1)
+
+# Generate Question 3
+if(runif(1) > 0.5) {
+  questions[3] <- paste0("The *Mean Squares between* is ***less*** than $",fmt(fls_MSb,3),"$.")
+  solutions[3] <- MSb < fls_MSb
+  explanations[3] <- paste0("The correct answer is ***",solutions[3],"***. ","The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, the *Mean Squares between* is $",fmt(MSb,3),"$. ","And $",fmt(MSb,3),"$ ",ifelse(solutions[3],"***is*** ", "is ***not*** "),"less than $",fmt(fls_MSb,3),"$.")
+} else {
+  questions[3] <- paste0("The *Mean Squares between* is ***greater*** than $",fmt(fls_MSb,3),"$.")
+  solutions[3] <- MSb > fls_MSb
+  explanations[3] <- paste0("The correct answer is ***",solutions[3],"***. ","The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, the *Mean Squares between* is $",fmt(MSb,3),"$. ","And $",fmt(MSb,3),"$ ",ifelse(solutions[3],"***is*** ", "is ***not*** "),"greater than $",fmt(fls_MSb,3),"$.")
+  }
+
+# Question 4 (mean squares within)
+fls_MSw <- SSw/sample(c(DFw-1,DFw+1),1)
+
+# Generate Question 3
+if(runif(1) > 0.5) {
+  questions[4] <- paste0("The *Mean Squares within* is ***less*** than $",fmt(fls_MSw,3),"$.")
+  solutions[4] <- MSw < fls_MSw
+  explanations[4] <- paste0("The correct answer is ***",solutions[4],"***. ","The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. ","And $",fmt(MSw,3),"$ ",ifelse(solutions[4],"***is*** ", "is ***not*** "),"less than $",fmt(fls_MSw,3),"$.")
+} else {
+  questions[4] <- paste0("The *Mean Squares within* is ***greater*** than $",fmt(fls_MSw,3),"$.")
+  solutions[4] <- MSw > fls_MSw
+  explanations[4] <- paste0("The correct answer is ***",solutions[4],"***. ","The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. ","And $",fmt(MSw,3),"$ ",ifelse(solutions[4],"***is*** ", "is ***not*** "),"greater than $",fmt(fls_MSw,3),"$.")
+  }
+# Question 5 (The F-ratio)
+
+fls_Fratio <- sample(c(Fratio-.01*Fratio, Fratio+.01*Fratio),1) 
+
+if(runif(1) > 0.5) {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***less*** than $",fmt(fls_Fratio,3),"$.")
+  solutions[5] <- Fratio < fls_Fratio
+  explanations[5] <- paste0("The correct answer is ***",solutions[5],"***. The *Means Squares between* for your replication experiment is $", fmt(MSb,3),"$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$. and therefore, it ",ifelse(solutions[5],"***is*** ", "is ***not*** "),"less than $",fmt(fls_Fratio,3),"$.")
+} else {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***greater*** than $",fmt(fls_Fratio,3),"$.")
+  solutions[5] <- Fratio > fls_Fratio
+  explanations[5] <- paste0("The correct answer is ***",solutions[5],"***. The *Mean Squares between* for your replication experiment is $", fmt(MSb,3), "$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$ and therefore, it ",ifelse(solutions[5],"***is*** ", "is ***not*** "),"greater than $",fmt(fls_Fratio,3),"$.")
+  }
+
+# Question 6 (reject or fail to reject null hypothesis)
+# Get critical value
+
+if(runif(1) > 0.5) {
+  questions[6] <- "Given the *degrees of freedom between*, the *degrees of freedom within*, the *F*-ratio, and an *alpha* level of .05, your decision should be to ***reject*** the null hypothesis."
+  solutions[6] <- Fratio >= FCritVal
+  explanations[6] <- paste0("The correct answer is ***",solutions[6],"***. Your *F*-ratio of $",fmt(Fratio,3),"$ (with $",fmt(DFb,0),"$ *degrees of freedom between*, and $",fmt(DFw,0),"$ *degrees of freedom within*) is ",ifelse(solutions[6], "***greater*** than or equal to ", "***less*** than "),"the critical value of $",fmt(FCritVal,3),"$. So the appropriate decision is to ",ifelse(solutions[6], "***reject*** the null hypothesis.", "***fail to reject*** the null hypothesis."))
+} else {
+  questions[6] <- "Given the *degrees of freedom between*, the *degrees of freedom within*, the *F*-ratio, and an *alpha* level of .05, your decision should be to **fail to** reject the null hypothesis."
+  solutions[6] <- Fratio < FCritVal
+  explanations[6] <- paste0("The correct answer is ***",solutions[6],"***. Your *F*-ratio of $",fmt(Fratio,3),"$ (with $",fmt(DFb,0),"$ *degrees of freedom between*, and $",fmt(DFw,0),"$ *degrees of freedom within*) is ",ifelse(solutions[6], "***less*** than ","***greater*** than or equal to "),"the critical value of $",fmt(FCritVal,3),"$. So the appropriate decision is to ",ifelse(solutions[6], "***fail to reject*** the null hypothesis.", "***reject*** the null hypothesis."))
+}
+```
+
+```{r ifAllFalseMakeOneTRUE}
+
+i <- 0
+if(all(solutions==FALSE)) {
+  i <- sample.int(6,1)
+  }
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(DFb < fls_DFb) {
+  questions[1] <- paste0("The *degrees of freedom between* are ***less*** than $",fmt(fls_DFb,0),"$.")
+  explanations[1] <- paste0("The correct answer is ***TRUE***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$, and hence, ***are*** less than $",fmt(fls_DFb,0),"$.")
+  } else {
+    questions[1] <- paste0("The *degrees of freedom between* are ***greater*** than $",fmt(fls_DFb,0),"$.")
+    explanations[1] <- paste0("The correct answer is ***TRUE***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$, and hence, ***are*** greater than $",fmt(fls_DFb,0),"$.")
+  }
+} else if(i==2) {
+  solutions[2] <- TRUE
+  if(DFw < fls_DFw) {
+  questions[2] <- paste0("The *degrees of freedom within* are ***less*** than $",fmt(fls_DFw,0),"$.")
+  explanations[2] <- paste0("The correct answer is ***TRUE***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is (*N*-*G*). Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$, and hence, ***are*** less than $",fmt(fls_DFw,0),"$.")
+  } else {
+    questions[2] <- paste0("The *degrees of freedom within* are ***greater*** than $",fmt(fls_DFw,0),"$.")
+    explanations[2] <- paste0("The correct answer is ***TRUE***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is (*N*-*G*). Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$, and hence, ***are*** greater than $",fmt(fls_DFw,0),"$.")
+  }
+} else if (i==3) {
+  solutions[3] <- TRUE
+  if (MSb < fls_MSb) {
+  questions[3] <- paste0("The *Mean Squares between* is ***less*** than $",fmt(fls_MSb,3),"$.")
+  explanations[3] <- paste0("The correct answer is ***TRUE***. The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, *the Mean Squares between* is $",fmt(MSb,3),"$. And $",fmt(MSb,3),"$ ***is*** less than $",fmt(fls_MSb,3),"$.")
+} else {
+  questions[3] <- paste0("The *Mean Squares between* is ***greater*** than $",fmt(fls_MSb,3),"$.")
+  explanations[3] <- paste0("The correct answer is ***TRUE***. The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, the *Mean Squares between* is $",fmt(MSb,3),"$. And $",fmt(MSb,3),"$ ***is*** greater than $",fmt(fls_MSb,3),"$.")
+  }
+} else if (i==4) {
+  solutions[4] <- TRUE
+  if (MSw < fls_MSw) {
+  questions[4] <- paste0("The *Mean Squares within* is ***less*** than $",fmt(fls_MSw,3),"$.")
+  explanations[4] <- paste0("The correct answer is ***TRUE***. The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. And $",fmt(MSw,3),"$ ***is*** less than $",fmt(fls_MSw,3),"$.")
+  } else {
+  questions[4] <- paste0("The *Mean Squares within* is ***greater*** than $",fmt(fls_MSw,3),"$.")
+  explanations[4] <- paste0("The correct answer is ***TRUE***. The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. And $",fmt(MSw,3),"$ ***is*** greater than $",fmt(fls_MSw,3),"$.")
+  }
+} else if (i==5) {
+  solutions[5] <- TRUE
+  if (Fratio >= FCritVal) {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***less*** than $",fmt(fls_Fratio,3),"$.")
+  explanations[5] <- paste0("The correct answer is ***TRUE***. The *Means Squares between* for your replication experiment is $", fmt(MSb,3),"$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$. and therefore, it ***is*** less than $",fmt(fls_Fratio,3),"$.")
+  } else {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***greater*** than $",fmt(fls_Fratio,3),"$.")
+  explanations[5] <- paste0("The correct answer is ***TRUE***. The *Means Squares between* for your replication experiment is $", fmt(MSb,3),"$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$. and therefore, it ***is*** greater than $",fmt(fls_Fratio,3),"$.")    
+  }
+} else if (i==6) {
+  solutions[6] <- TRUE
+  if (Fratio >= FCritVal) {
+  questions[6] <- paste0("Given the *degrees of freedom between*, *the degrees of freedom within*, the *F*-ratio, and an *alpha* level of .05, your decision should be to ", ifelse(solutions[6], "***reject***", "***fail to reject***"), "$ the null hypothesis.")
+  explanations[6] <- paste0("The correct answer is ***TRUE***. Your *F*-ratio of $",fmt(Fratio,3),"$ (with $",fmt(DFb,0),"$ *degrees of freedom between*, and $",fmt(DFw,0),"$ *degrees of freedom within*) is $", ifelse(solutions[6], "***greater than or equal to***", "***less*** than"), "$ the critical value of $",fmt(FCritVal,3),"$. So the appropriate decision is to $", ifelse(solutions[6], "***reject*** the null hypothesis", "***fail to reject*** the null hypothesis"),".")
+} else {
+  
+  }
+}
+
+rm(i)
+
+```
+
+```{r ifAllTrueMakeOneFalse}
+
+j <- 0
+if(all(solutions==TRUE)) {
+  j <- sample.int(6,1)
+  }
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(DFb > fls_DFb) {
+  questions[1] <- paste0("The *degrees of freedom between* are ***less*** than $",fmt(fls_DFb,0),"$.")
+  explanations[1] <- paste0("The correct answer is ***FALSE***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$, and hence, are ***not*** less than $",fmt(fls_DFb,0),"$.")
+  } else {
+    questions[1] <- paste0("The *degrees of freedom between* are ***greater*** than $",fmt(fls_DFb,0),"$.")
+    explanations[1] <- paste0("The correct answer is ***FALSE***. The *degrees of freedom between* are the number of levels of the predictor variable minus 1 (*G*-1). Since there were $",G,"$ levels for the factor `Message Received`, the *degrees of freedom between* are $",fmt(DFb,0),"$, and hence, are ***not*** greater than $",fmt(fls_DFb,0),"$.")
+  }
+} else if(j==2) {
+  solutions[2] <- FALSE
+  if(DFw > fls_DFw) {
+  questions[2] <- paste0("The *degrees of freedom within* are ***less*** than $",fmt(fls_DFw,0),"$.")
+  explanations[2] <- paste0("The correct answer is ***FALSE***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is (*N*-*G*). Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$, and hence, are ***not**** less than $",fmt(fls_DFw,0),"$.")
+  } else {
+    questions[2] <- paste0("The *degrees of freedom within* are ***greater*** than $",fmt(fls_DFw,0),"$.")
+    explanations[2] <- paste0("The correct answer is ***FALSE***. The *degrees of freedom within* are the total sample size (*N*) minus the number of levels in the predictor variable (*G*). So it is (*N*-*G*). Since the total sample size was $",fmt(N,0),"$, and there were $",fmt(G,0),"$ levels for the factor `Message Received`, the *degrees of freedom within* are $",fmt(DFw,0),"$, and hence, are ***not*** greater than $",fmt(fls_DFw,0),"$.")
+  }
+} else if (j==3) {
+  solutions[3] <- FALSE
+  if (MSb > fls_MSb) {
+  questions[3] <- paste0("The *Mean Squares between* is ***less*** than $",fmt(fls_MSb,3),"$.")
+  explanations[3] <- paste0("The correct answer is ***FALSE***. The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, *the Mean Squares between* is $",fmt(MSb,3),"$. And $",fmt(MSb,3),"$ is ***not*** less than $",fmt(fls_MSb,3),"$.")
+} else {
+  questions[3] <- paste0("The *Mean Squares between* is ***greater*** than $",fmt(fls_MSb,3),"$.")
+  explanations[3] <- paste0("The correct answer is ***FALSE***. The *Mean Squares between* is the *Sum of Squares between* divided by the *degrees of freedom between*. Since the *Sum of Squares between* is $",fmt(SSb,3),"$, and the *degrees of freedom between* is $",fmt(DFb,0),"$, the *Mean Squares between* is $",fmt(MSb,3),"$. And $",fmt(MSb,3),"$ is ***not*** greater than $",fmt(fls_MSb,3),"$.")
+  }
+} else if (j==4) {
+  solutions[4] <- FALSE
+  if (MSw > fls_MSw) {
+  questions[4] <- paste0("The *Mean Squares within* is ***less*** than $",fmt(fls_MSw,3),"$.")
+  explanations[4] <- paste0("The correct answer is ***FALSE***. The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. And $",fmt(MSw,3),"$ is ***not*** less than $",fmt(fls_MSw,3),"$.")
+  } else {
+  questions[4] <- paste0("The *Mean Squares within* is ***greater*** than $",fmt(fls_MSw,3),"$.")
+  explanations[4] <- paste0("The correct answer is ***FALSE***. The *Mean Squares within* is the *Sum of Squares within* divided by the *degrees of freedom within*. Since the *Sum of Squares within* is $",fmt(SSw,3),"$, and the *degrees of freedom within* is $",fmt(DFw,0),"$, the *Mean Squares within* is $",fmt(MSw,3),"$. And $",fmt(MSw,3),"$ is ***not*** greater than $",fmt(fls_MSw,3),"$.")
+  }
+} else if (j==5) {
+  solutions[5] <- FALSE
+  if (Fratio > FCritVal) {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***less*** than $",fmt(fls_Fratio,3),"$.")
+  explanations[5] <- paste0("The correct answer is ***FALSE***. The *Mean Squares between* for your replication experiment is $", fmt(MSb,3),"$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$. and therefore, it is ***not*** less than or equal to $",fmt(fls_Fratio,3),"$.")
+  } else {
+  questions[5] <- paste0("The *F*-ratio for this analysis is ***greater than or equal to*** $",fmt(fls_Fratio,3),"$.")
+  explanations[5] <- paste0("The correct answer is ***FALSE***. The *Mean Squares between* for your replication experiment is $", fmt(MSb,3),"$, and the *Mean Squares within* is $", fmt(MSw,3), "$. Divide the former by the latter, and you get the *F*-ratio. In this case, it is $",fmt(Fratio,3),"$. and therefore, it is ***not*** greater than or equal to $",fmt(fls_Fratio,3),"$.")    
+  }
+} else if (j==6) {
+  solutions[6] <- FALSE
+  if (Fratio < FCritVal) {
+  questions[6] <- paste0("Given the *degrees of freedom between*, the *degrees of freedom within*, the *F*-ratio, and an *alpha* level of .05, your decision should be to ", ifelse(solutions[6], "**reject**", "**fail to reject**"), "$ the null hypothesis.")
+  explanations[6] <- paste0("The correct answer is ***FALSE***. Your *F*-ratio of $",fmt(Fratio,3),"$ (with $",fmt(DFb,0),"$ *degrees of freedom between*, and $",fmt(DFw,0),"$ *degrees of freedom within*) is $", ifelse(solutions[6], "***less than**", "***greater than or equal to***"), "$ the critical value of $",fmt(FCritVal,3),"$. So the appropriate decision is to $", ifelse(solutions[6], "***fail to reject*** the null hypothesis", "***reject*** the null hypothesis"),".")
+} else {
+  
+  }
+}
+
+rm(j)
+
+```
+
+```{r questionlist, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+# Solution
+
+The full formula for the *F*-ratio is as follows:\
+<br/>
+
+$$F=\frac{Sum\ of\ Squares_{(between)}\bigg/degrees\ of\ freedom_{(between)}}{Sum\ of\ Squares_{(within)}\bigg/degrees\ of\ freedom_{(within)}}=\frac{MS_{between}}{MS_{within}}$$
+
+------------------------------------------------------------------------
+
+Or, in shorthand
+
+$$F=\frac{SS_{between}\bigg/df_{between}}{SS_{within}\bigg/df_{within}}=\frac{MS_{between}}{MS_{within}}$$
+
+------------------------------------------------------------------------
+
+Or even shorter:
+
+$$F=\frac{SS_b\bigg/df_b}{SS_w\bigg/df_w}$$
+
+------------------------------------------------------------------------
+
+<br/>
+
+The following was true about this problem:
+
+1.  You were given the *Sum of Squares* (both *between* and *within*) in
+    the ANOVA table\
+2.  You can calculate the *degrees of freedom between* from the
+    knowledge of the study design alone\
+3.  You can calculate the *degrees of freedom within* from the number of
+    participants and the study design
+
+This means that you were able fill out all the missing parts of the
+table.
+
+------------------------------------------------------------------------
+
+<br/> The formula for the *degrees of freedom between* is $G-1$, or the
+number of levels in the predictor variable minus 1. <br/>
+
+Thus: <br/>
+
+$$G-1=`r G`-1=`r G-1`$$
+
+------------------------------------------------------------------------
+
+<br/>
+
+The formula for the *degrees of freedom within* is $N-G$, or the number
+of participants minus the number of levels in the predictor variable.
+<br/>
+
+Thus: <br/>
+
+$$N-G=`r N`-`r G`=`r N-G`$$
+
+------------------------------------------------------------------------
+
+<br/>
+
+The formula for the *mean squares between* is $\frac{SS_b}{df_b}$, or
+the *sum of squares between* divided by the *degrees of freedom
+between*. <br/>
+
+Thus: <br/>
+
+$$MS_b=\frac{SS_b}{df_b}=\frac{`r SSb`}{`r DFb`}=`r round(SSb/DFb,3)`$$
+
+------------------------------------------------------------------------
+
+<br/>
+
+The formula for the *mean squares within* is $\frac{SS_w}{df_w}$, or the
+*sum of squares within* divided by the *degrees of freedom within*.
+<br/>
+
+Thus: <br/>
+
+$$MS_w=\frac{SS_w}{df_w}=\frac{`r SSw`}{`r DFw`}=`r round(SSw/DFw,3)`$$
+
+------------------------------------------------------------------------
+
+<br/>
+
+The formula for the *F*-ratio is $\frac{MS_b}{MS_w}$, or the *mean
+squares between* divided by the *mean squares within*. <br/>
+
+Thus: <br/>
+
+$$F=\frac{MS_b}{MS_w}=\frac{`r MSb`}{`r MSw`}=`r round(MSb/MSw,3)`$$
+
+------------------------------------------------------------------------
+
+To get the critical value for an *F*-test with $\alpha=.05$, you go to
+[this online
+table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#f-table-alpha-05)
+and make the following choices:
+
+-   Numerator degrees of freedom ($d_1$)
+    -   `r DFb`
+-   Denominator degrees of freedom ($d_2$)
+    -   `r DFw`\
+-   Then look at the intersection of those values for the critical value
+
+------------------------------------------------------------------------
+
+If you are interested, an error-bar chart of the data is below:
+
+```{r, DisplayDescriptivesFigure}
+# Represent the data in a error-bar chart
+GrpDesc %>% ggplot(aes(x = `Message Received`)) + 
+  geom_errorbar(aes(ymin=`lower 95% CI`, ymax=`upper 95% CI`), width = 0.4, color="#500000") +
+  geom_point(aes(y=M), stat = "identity", color="#500000") +
+  ylim(1,7) +
+  labs(y="Likeability of Sender")
+```
+
+------------------------------------------------------------------------
+
+***Reference***
+
+Sezer, O, Gino, F., and Norton, M. I. (2018). Humblebragging: A
+distinct - and ineffective - self-presentation strategy. *Journal of
+Personality and Social Psychology*, *114*(1), 52-74.
+
+```{r solutionlist, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+# Meta-information
+
+extype: mchoice exsolution: `r mchoice2string(solutions)` exname: FTable

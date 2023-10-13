@@ -1,0 +1,319 @@
+---
+title: "linear regression"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("truncnorm", "tibble", "dplyr", "magrittr", "exams", "kableExtra", "ggplot2", "sjPlot")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r data generation, echo = FALSE, message=F, warning=F, results = "hide"}
+
+N <- sample(10:12,1) # random number between 10 and 13
+Agreeableness <- round(rtruncnorm(N, 1, 5, 4.24, 0.53),2)
+error <- rnorm(N, 0, 25) # down from 104 in original (p. 472)
+# This allows me to keep the same regression coefficient
+
+FICO <- 694 - # 694 in original study (table 1, p. 473)
+  28.56*Agreeableness + # from table 2, p. 474 
+  error
+
+# Remove decimal places for FICO
+FICO <- round(FICO,0)
+
+d01 <- as_tibble(cbind(FICO, Agreeableness))
+
+meanFICO <- round(mean(d01$FICO),3)
+sdFICO <- round(sd(d01$FICO),3)
+meanAgrb <- round(mean(d01$Agreeableness),3)
+sdAgrb <- round(sd(d01$Agreeableness),3)
+
+test <- lm(FICO ~ Agreeableness,data = d01)
+s01 <- summary(test)
+#s01 # to see results during development only
+```
+
+```{r solutionVars, echo = FALSE, message=F, warning=F, results = "hide"}
+# Variables
+X <- Agreeableness
+Y <- FICO
+Xsq <- Agreeableness^2
+Ysq <- FICO^2
+XY <- Agreeableness*FICO
+# Slope and Intercept
+b1 <- ((sum(XY))-(sum(X)*sum(Y)/N))/((sum(Xsq))-((sum(X)^2/N)))
+b0 <- (sum(Y)-b1*sum(X))/N
+```
+
+# Question
+
+Bernerth, Taylor, Walker, and Whitman (2012) found that FICO scores (*M*
+= 694.45, *SD* = 104.22) correlated significantly with the personality
+trait *Agreeableness* (*M* = 4.24, *SD* = 0.53). Specifically, for every
+1-unit increase of *Agreeableness*, FICO scores ***dropped*** by 35.12
+points, *b* = -35.12, *p* \< .05.
+
+You want to replicate this portion of the study with a small number of
+participants, so you recruit `r N` participants who are willing to take
+the same *Big-5* personality-trait survey, as well as provide you their
+FICO scores.
+
+------------------------------------------------------------------------
+
+<br/>
+
+**Calculations**
+
+The raw scores of your `r N` participants are below. For the FICO scores
+(some of which may go beyond the maximum possible), the mean is
+`r round(meanFICO,0)` (*SD* = `r round(sdFICO,3)`). For the Big 5
+characteristic *Agreeableness*, the mean is `r round(meanAgrb,3)` (*SD*
+= `r round(sdAgrb,3)`). For a simple linear regression, calculate both
+the slope and the intercept for association between these two variables.
+Round to ***FOUR*** decimal places at each step, but to ***THREE***
+decimal places in your final answer.
+
+You can refer to the following page for the formulas: [PSYC 301 exam
+formulas](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#simple-regression)
+
+```{r DisplayRawScores, echo = FALSE, message=F, warning=F, fig.cap=''}
+d01 %>% 
+  kable(digits=c(3), align = "c") %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
+------------------------------------------------------------------------
+
+<br/>
+
+**TRUE/FALSE Questions**
+
+Now that you have calculated these statistics, answer the questions
+below. Check the box to indicate **TRUE**, and leave it blank to
+indicate **FALSE**.
+
+------------------------------------------------------------------------
+
+<br/>
+
+```{r QuestionVectorSize, echo=F, results = "hide"}
+questions <- character(2)
+solutions <- logical(2)
+explanations <- character(2)
+```
+
+```{r QuestionGeneration, echo=F, results = "hide"}
+# Create a false df, t, and p value above or below the true values
+int <- round(test$coefficients[1],3)
+slp <- round(test$coefficients[2],3)
+
+# ^^ specific to the N setting, hard coded
+# 
+fls_slp <- round(sample(c(slp - .005*slp, slp + .005*slp),1), 3)
+fls_int <- round(sample(c(int - .005*int, int + .005*int),1), 3)
+
+# Question 1 (slope)
+if(runif(1) > 0.5) {
+    questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness` is **less** than $",fmt(fls_slp,3),"$.")
+    solutions[1] <- slp < fls_slp
+    explanations[1] <- paste0("The correct answer is ",solutions[1],". The obtained value for the slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," less than $",fmt(fls_slp,3),"$.")
+  } else {
+    questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness` is **greater** than $",fmt(fls_slp,3),"$.")
+    solutions[1] <- slp > fls_slp
+    explanations[1] <- paste0("The correct answer is ",solutions[1],". The slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," greater than $",fmt(fls_slp,3),"$.")
+  }
+
+# Question 2 (intercept)
+if(runif(1) > 0.5) {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **less** than $",fmt(fls_int,3),"$.")
+    solutions[2] <- int < fls_int
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The intercept for `FICO` is $",fmt(int,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," less than $",fmt(fls_int,3),"$.")
+  } else {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **greater** than $",fmt(fls_int,3),"$.")
+    solutions[2] <- int > fls_int
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The intercept for `FICO` is $",fmt(int,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," greater than $",fmt(fls_int,3),"$.")
+  }
+
+```
+
+```{r ifAllFalseMakeOneTRUE}
+
+i <- 0
+
+if(all(solutions==FALSE)) {
+  i <- sample.int(2,1)
+}
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(slp < fls_slp) {
+  questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness` is **less** than $",fmt(fls_slp,3),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, is less than $",fmt(fls_slp,3),"$.")
+  } else {
+    questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness`is **greater** than $",fmt(fls_slp,3),"$.")
+    explanations[1] <- paste0("The correct answer is TRUE. The slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, is greater than $",fmt(fls_slp,3),"$.")
+  }
+} else if (i==2) {
+    solutions[2] <- TRUE
+    if(int < fls_int) {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **less** than $",fmt(fls_int,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The intercept for `FICO` is $",fmt(int,3),"$, and hence, is less than $",fmt(fls_int,3),"$.")
+  } else {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **greater** than $",fmt(fls_int,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The intercept for `FICO` is $",fmt(int,3),"$, and hence, is greater than $",fmt(fls_int,3),"$.")
+  }
+}
+
+rm(i)
+
+```
+
+```{r ifAllTrueMakeOneFALSE}
+
+j <- 0
+
+if(all(solutions==TRUE)) {
+  j <- sample.int(2,1)
+}
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(slp > fls_slp) {
+  questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness` is **less** than $",fmt(fls_slp,3),"$.")
+  explanations[1] <- paste0("The correct answer is FALSE. The slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, is greater than $",fmt(fls_slp,3),"$.")
+  } else {
+    questions[1] <- paste0("The slope, *b*, for `FICO` regressed on `Agreeableness`is **greater** than $",fmt(fls_slp,3),"$.")
+    explanations[1] <- paste0("The correct answer is FALSE. The slope for `FICO` regressed on `Agreeableness` is $",fmt(slp,3),"$, and hence, is less than $",fmt(fls_slp,3),"$.")
+  }
+} else if (j==2) {
+    solutions[2] <- FALSE
+    if(int > fls_int) {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **less** than $",fmt(fls_int,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The intercept for `FICO` is $",fmt(int,3),"$, and hence, is greater than $",fmt(fls_int,3),"$.")
+  } else {
+    questions[2] <- paste0("The intercept, *a*, for `FICO` is **greater** than $",fmt(fls_int,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The intercept for `FICO` is $",fmt(int,3),"$, and hence, is less than $",fmt(fls_int,3),"$.")
+  }
+}
+
+rm(j)
+
+```
+
+```{r QuestionList, echo=F, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+# Solution
+
+The results of this simple regression are as follows:
+
+```{r, echo=F, comment=NA}
+tab_model(test, digits = 3)
+```
+
+------------------------------------------------------------------------
+
+<br/>
+
+The slope for a simple linear regression is calculated with the
+following formula:
+
+$$b=\frac{\sum{XY-(\sum{X}\sum{Y/n})}}{\sum{X}^2-[(\sum{X})^2/n]}$$
+<br/>
+
+So you need the following: $n$, $\sum{X}$, $\sum{Y}$, $\sum{X^2}$, and
+finally $\sum{XY}$
+
+The easiest way to do this is create a table and calculate all the
+necessary components:
+
+<br/>
+
+|  $N$  |               $X$               |               $Y$               |               $X^2$               |               $XY$               |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|       |            `r X[1]`             |            `r Y[1]`             |            `r Xsq[1]`             |            `r XY[1]`             |
+|       |            `r X[2]`             |            `r Y[2]`             |            `r Xsq[2]`             |            `r XY[2]`             |
+|       |            `r X[3]`             |            `r Y[3]`             |            `r Xsq[3]`             |            `r XY[3]`             |
+|       |            `r X[4]`             |            `r Y[4]`             |            `r Xsq[4]`             |            `r XY[4]`             |
+|       |            `r X[5]`             |            `r Y[5]`             |            `r Xsq[5]`             |            `r XY[5]`             |
+|       |            `r X[6]`             |            `r Y[6]`             |            `r Xsq[6]`             |            `r XY[6]`             |
+|       |            `r X[7]`             |            `r Y[7]`             |            `r Xsq[7]`             |            `r XY[7]`             |
+|       |            `r X[8]`             |            `r Y[8]`             |            `r Xsq[8]`             |            `r XY[8]`             |
+|       |            `r X[9]`             |            `r Y[9]`             |            `r Xsq[9]`             |            `r XY[9]`             |
+|       |            `r X[10]`            |            `r Y[10]`            |            `r Xsq[10]`            |            `r XY[10]`            |
+|       | `r if (N>10) {X[11]} else {""}` | `r if (N>10) {Y[11]} else {""}` | `r if (N>10) {Xsq[11]} else {""}` | `r if (N>10) {XY[11]} else {""}` |
+|       | `r if (N>11) {X[12]} else {""}` | `r if (N>11) {Y[12]} else {""}` | `r if (N>11) {Xsq[12]} else {""}` | `r if (N>11) {XY[12]} else {""}` |
+| `r N` |   $\sum$ `r round(sum(X),4)`    |   $\sum$ `r round(sum(Y),4)`    |   $\sum$ `r round(sum(Xsq),4)`    |   $\sum$ `r round(sum(XY),4)`    |
+
+<br/>
+
+Once you have the sums (the bottom row) you put the sums into the
+equation for the slope: <br/>
+$$b=\frac{\sum{XY-(\sum{X}\sum{Y/n})}}{\sum{X}^2-[(\sum{X})^2/n]}$$
+
+<br/>
+$$b=\frac{`r round(sum(XY),4)`-[(`r round(sum(X),4)`)(`r round(sum(Y),4)`)/`r N`]}{`r round(sum(Xsq),4)`-[(`r round(sum(X),4)`^2)/`r N`]}$$
+<br/>
+$$b=\frac{`r round(sum(XY),4)`-[`r round(sum(X)*sum(Y),4)`/`r N`]}{`r round(sum(Xsq),4)`-[`r round((sum(X)^2),4)`/`r N`]}$$
+<br/>
+$$b=\frac{`r round(sum(XY),4)`-`r round((sum(X)*sum(Y))/N,4)`}{`r round(sum(Xsq),4)`-`r round((sum(X)^2)/N,4)`}$$
+<br/>
+$$b=\frac{`r round(sum(XY)-((sum(X)*sum(Y))/N),4)`}{`r round(sum(Xsq)-((sum(X)^2)/N),4)`}$$
+<br/>
+$$b=`r round((sum(XY)-((sum(X)*sum(Y))/N))/((sum(Xsq))-((sum(X)^2)/N)),3)`$$
+
+------------------------------------------------------------------------
+
+Once you have the slope, the intercept for a simple linear regression is
+calculated with the following formula:
+
+<br/> $$a=\frac{\sum{Y}-b\sum{X}}{n}$$ <br/> Thus:
+
+<br/>
+$$a=\frac{`r round(sum(Y),4)`-[(`r round(b1,4)`)(`r round(sum(X),4)`)]}{`r N`}$$
+<br/> $$a=\frac{`r round(sum(Y),4)`-(`r round(b1*sum(X),4)`)}{`r N`}$$
+<br/> $$a=\frac{`r round(sum(Y)-b1*sum(X),4)`}{`r N`}$$ <br/>
+$$a=`r round((sum(Y)-b1*sum(X))/N,3)`$$
+
+On a scatterplot, the data would look like the following:
+
+```{r, echo=F, warning=F, message=F}
+d01 %>% ggplot(aes(Agreeableness, FICO)) +
+  geom_point(color="#500000") +
+  geom_smooth(method = lm, color="#500000")
+```
+
+------------------------------------------------------------------------
+
+***Reference***
+
+Bernerth, J. B., Taylor, S. G., Walker, H. J., Whitman, D. S. (2012). An
+empirical investigation of dispositional antecedents and
+performance-related outcomes of credit scores. *Journal of Applied
+Psychology*, *97*(2), 469-478.
+
+```{r SolutionList, echo=F, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+# Meta-information
+
+extype: mchoice exsolution: `r mchoice2string(solutions)` exname:
+SimpleReg

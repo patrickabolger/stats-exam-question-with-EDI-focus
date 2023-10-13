@@ -1,0 +1,445 @@
+---
+title: "paired t-test"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("truncnorm", "tibble", "dplyr", "tidyr", "magrittr", "exams", "kableExtra", "ggplot2", "randomNames", "devtools")
+#devtools::install_github('rcalinjageman/esci')
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r dataGen, echo = FALSE, message=F, warning=F, results = "hide"}
+
+N <- sample(10:13,1) # random number between 10 and 13
+Student <- randomNames(N)
+startMean <- round(runif(1,65,75),0)
+SD <- runif(1,10,20)
+
+Exam1 <- round(rtruncnorm(N, 0, 100, startMean, SD),0)
+error <- rnorm(N, 0, SD/sqrt(N)) # down from 104 in original (p. 472)
+# This allows me to keep the same regression coefficient
+
+Exam2 <- mean(Exam1) + 
+  runif(1,0,0.20)*Exam1 + # from table 2, p. 474 
+  error
+
+ifelse(Exam2 > 100, 100, Exam2)
+ifelse(Exam2 < 0, 0, Exam2)
+  
+
+# Remove decimal places for Exam 2
+Exam2 <- round(Exam2,0)
+
+# put the variables into a tibble
+dat_wide <- tibble(Student, Exam1, Exam2)
+
+# create a long data frame for testing with t.test()
+dat_long <- dat_wide %>% pivot_longer(!Student, names_to = "Exam", names_prefix = "Exam", values_to = "Score")
+
+```
+
+```{r comparisonCheck, echo = FALSE, message=F, warning=F, results = "hide"}
+#test to see results during development-stage only
+test <- t.test(Score ~ Exam, data = dat_long, paired = TRUE)
+test
+```
+
+
+```{r solutionVars, echo = FALSE, message=F, warning=F, results = "hide"}
+# Variables for solution feedback
+# Using D and D-squared
+# dwp stands for data-wide-plus (plus referring to D and D-squared)
+# I shortened this to make the markdown tables more readable
+dwp <- dat_wide %>% mutate(D = Exam2 - Exam1, Dsq = D^2)
+```
+
+
+Question
+========
+This is a replication of the [Chico dataset](https://davidfoxcroft.github.io/lsj-book/11-Comparing-two-means.html#the-paired-samples-t-test) from the textbook by Navarro & Foxcroft (2022):  
+
+>In [Dr. Chico's] class students take two major tests, one early in the semester and one later in the semester. To hear her tell it, she runs a very hard class, one that most students find very challenging. But she argues that by setting hard assessments students are encouraged to work harder. Her theory is that the first test is a bit of a "wake up call" for students. When they realize how hard her class really is, they'll work harder for the second test and get a better mark. Is she right?
+
+
+You replicate the testing situation in your own class, and test your students in the same way.  
+
+---
+
+<br/>
+
+**Calculations**  
+
+The raw scores of your `r N` students are below. Calculate the obtained value of a paired-samples *t*-test. Subtract the earlier score from the latter score (`Exam 2` - `Exam 1`) to obtain the difference score. Use a ***one***-tailed test, where you expect later scores to be higher than earlier scores(meaning a ***right***-tailed test). Round to ***FOUR*** decimal places at each step, but to ***THREE*** decimal places in your final answer.
+
+```{r DisplayRawScores, echo = FALSE, message=F, warning=F, fig.cap=''}
+dat_wide %>% 
+  kable(digits=c(3), align = "c") %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
+---
+
+<br/>
+
+**TRUE/FALSE Questions**  
+
+Now that you have calculated the obtained value for *t*, answer the questions below. Check the box to indicate **TRUE**, and leave it blank to indicate **FALSE**.
+
+>Note: You will need to consult this [critical-value tables for t](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#t-table) in order to answer all the questions.  
+
+---
+
+<br/>
+
+```{r QuestionVectorSize, echo=F, results = "hide"}
+questions <- character(4)
+solutions <- logical(4)
+explanations <- character(4)
+```
+
+```{r QuestionGeneration, echo=F, results = "hide"}
+# obtained t and effect size
+# obtained t
+## Numerator
+SumD <- round(sum(dwp$D),4)
+## Denominator (stages)
+### stage 1
+#### Denominator
+df <- N-1
+### Numerator 
+Sum_Dsq <- round(sum(dwp$Dsq),4) 
+SumD_sq <- round(SumD^2,4)
+### stage 2
+#### Numerator 
+n_Sum_Dsq <- round(N*Sum_Dsq,4)
+### stage 3
+num_SEsq <- round(n_Sum_Dsq-SumD_sq,4)
+### stage 4
+SEsq <- round(num_SEsq/df,4)
+### stage 5
+SE <- round(sqrt(SEsq),4)
+## Final t
+t <- round(SumD/SE,3)
+
+# For the simpler formula
+
+muD <- round(mean(dwp$D),4)
+sdD <- round(sd(dwp$D),4)
+seD <- round((sdD/sqrt(N)),4)
+sqrt_N <- round((sqrt(N)),4)
+t_simpler <- round((muD/seD),3)
+
+# t-critical
+tcrit <- abs(round(qt(.95, df),3))
+
+# p
+p <- pt(t, df, lower.tail = F)
+
+# False values for questions
+## false values
+
+fls_df <- sample(c(N-2,N,N+1,N+2), 1)
+fls_t <- round(sample(c(t - .005*t, t + .005*t),1), 3)
+fls_tcrit <- round(sample(c(tcrit - .005*tcrit, tcrit + .005*tcrit),1), 3)
+
+# Question 1 (df)
+if(runif(1) > 0.5) {
+  questions[1] <- paste0("The *degrees of freedom* are **less** than $",fmt(fls_df,0),"$.")
+  solutions[1] <- df < fls_df
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The degrees of freedom are $",fmt(df,0),"$, and therefore, ",ifelse(solutions[1], "**are**", "are **not**")," less than $",fmt(fls_df,0),"$.")
+} else {
+  questions[1] <- paste0("The *degrees of freedom* are **greater** than $",fmt(fls_df,0),"$.")
+  solutions[1] <- df > fls_df
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The degrees of freedom are $",fmt(df,0),"$, and therefore, ",ifelse(solutions[1], "**are**", "are **not**")," greater than $",fmt(fls_df,0),"$.")
+}
+
+# Question 2 (obtained t)
+if(runif(1) > 0.5) {
+    questions[2] <- paste0("The obtained value for *t* is **less** than $",fmt(fls_t,3),"$.")
+    solutions[2] <- t < fls_t
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *t* is $",fmt(t,3),"$, and therefore, ",ifelse(solutions[2], "**is**", "is **not**")," less than $",fmt(fls_t,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *t* is **greater** than $",fmt(fls_t,3),"$.")
+    solutions[2] <- t > fls_t
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *t* is $",fmt(t,3),"$, and therefore, ",ifelse(solutions[2], "**is**", "is **not**")," greater than $",fmt(fls_t,3),"$.")
+  }
+
+# Question 3 (critical value for t)
+if(runif(1) > 0.5) {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **less** than $",fmt(fls_tcrit,3),"$.")
+    solutions[3] <- tcrit < fls_tcrit
+    explanations[3] <- paste0("The correct answer is ",solutions[3],". The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, ",ifelse(solutions[3], "**is**", "is **not**")," less than $",fmt(fls_tcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **greater** than $",fmt(fls_tcrit,3),"$.")
+    solutions[3] <- tcrit > fls_tcrit
+    explanations[3] <- paste0("The correct answer is ",solutions[3],". The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, ",ifelse(solutions[3], "**is**", "is **not**")," greater than $",fmt(fls_tcrit,3),"$.")
+  }
+
+# Question 4 (significance)
+questions[4] <- paste0("The results of the *t*-test (***right***-tailed) are statistically significant.")
+solutions[4] <- t >= tcrit
+explanations[4] <- paste0("The correct answer is ",solutions[4],". The obtained value for *t* is $",fmt(t,3),"$, and therefore, ",ifelse(solutions[4], "**is**", "is **not**")," greater than or equal to the critical value (***right***-tailed) of $",fmt(tcrit,3),"$.")
+
+```
+
+
+```{r ifAllFalseMakeOneTRUE}
+
+i <- 0
+if(all(solutions==FALSE)) {
+i <- sample.int(4,1)
+  }
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(df < fls_df) {
+  questions[1] <- paste0("The *degrees of freedom* are **less** than $",fmt(fls_df,0),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The degrees of freedom are $",fmt(df,0),"$, and therefore, are less than $",fmt(fls_df,0),"$.")
+  } else {
+    questions[1] <- paste0("The *degrees of freedom* are **greater** than $",fmt(fls_df,0),"$.")
+    explanations[1] <- paste0("The correct answer is TRUE. The degrees of freedom are $",fmt(df,0),"$, and therefore, are greater than $",fmt(fls_df,0),"$.")
+  }
+} else if (i==2) {
+    solutions[2] <- TRUE
+    if(t < fls_t) {
+    questions[2] <- paste0("The obtained value for *t* is **less** than $",fmt(fls_t,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *t* is $",fmt(t,3),"$, and therefore, is less than $",fmt(fls_t,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *t* is **greater** than $",fmt(fls_t,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *t* is $",fmt(t,3),"$, and therefore, is greater than $",fmt(fls_t,3),"$.")
+  }
+} else if (i==3) {
+    solutions[3] <- TRUE
+    if(tcrit < fls_tcrit) {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **less** than $",fmt(fls_tcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, is less than $",fmt(fls_tcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **greater** than $",fmt(fls_tcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, is greater than $",fmt(fls_tcrit,3),"$.")
+  }
+} else if (i==4) {
+    solutions[4] <- TRUE
+    if(t >= tcrit) {
+questions[4] <- paste0("The results of the *t*-test (***right***-tailed) are statistically significant.")
+explanations[4] <- paste0("The correct answer is TRUE. The obtained value for *t* is $",fmt(t,3),"$, and therefore, is greater than or equal to the critical value (***right***-tailed) of $",fmt(tcrit,3),"$.")
+  } else {
+questions[4] <- paste0("The results of the *t*-test (***right***-tailed) are ***not*** statistically significant.")
+explanations[4] <- paste0("The correct answer is TRUE. The obtained value for *t* is $",fmt(t,3),"$, and therefore, is less than the critical value (***right***-tailed) of $",fmt(tcrit,3),"$.")
+  }
+}
+
+```
+
+```{r ifAllTrueMakeOneFALSE}
+
+j <- 0
+if(all(solutions==TRUE)) {
+j <- sample.int(4,1)
+  }
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(df > fls_df) {
+  questions[1] <- paste0("The *degrees of freedom* are **less** than $",fmt(fls_df,0),"$.")
+  explanations[1] <- paste0("The correct answer is FALSE The degrees of freedom are $",fmt(df,0),"$, and therefore, are more than $",fmt(fls_df,0),"$.")
+  } else {
+    questions[1] <- paste0("The *degrees of freedom* are **greater** than $",fmt(fls_df,0),"$.")
+    explanations[1] <- paste0("The correct answer is FALSE The degrees of freedom are $",fmt(df,0),"$, and therefore, are less than $",fmt(fls_df,0),"$.")
+  }
+} else if (j==2) {
+    solutions[2] <- FALSE
+    if(t >= fls_t) {
+    questions[2] <- paste0("The obtained value for *t* is **less** than $",fmt(fls_t,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The obtained value for *t* is $",fmt(t,3),"$, and therefore, is greater than or equal to $",fmt(fls_t,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *t* is **greater** than or equal to $",fmt(fls_t,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE The obtained value for *t* is $",fmt(t,3),"$, and therefore, is less than $",fmt(fls_t,3),"$.")
+  }
+} else if (j==3) {
+    solutions[3] <- FALSE
+    if(tcrit > fls_tcrit) {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **less** than $",fmt(fls_tcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, is greater than $",fmt(fls_tcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (***right***-tailed, alpha = .05) for *t* is **greater** than $",fmt(fls_tcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE The critical value (***right***-tailed, alpha = .05) for *t* with $",fmt(df,0),"$ degrees of freedom is $",fmt(tcrit,3),"$, and therefore, is less than $",fmt(fls_tcrit,3),"$.")
+  }
+} else if (j==4) {
+    solutions[4] <- FALSE
+    if(t < tcrit) {
+questions[4] <- paste0("The results of the *t*-test (***right***-tailed) are statistically significant.")
+explanations[4] <- paste0("The correct answer is FALSE The obtained value for *t* is $",fmt(t,3),"$, and therefore, is less than or equal to the critical value (***right***-tailed) of $",fmt(tcrit,3),"$.")
+  } else {
+questions[4] <- paste0("The results of the *t*-test (***right***-tailed) are ***not*** statistically significant.")
+explanations[4] <- paste0("The correct answer is FALSE The obtained value for *t* is $",fmt(t,3),"$, and therefore, is greater than or equal to the critical value (***right***-tailed) of $",fmt(tcrit,3),"$.")
+  }
+}
+
+```
+
+
+```{r QuestionList, echo=F, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+
+Solution
+=========
+
+The results of this simple regression are as follows:  
+
+$$t(`r df`)=`r t`, p=`r p`$$
+<br/>
+
+---
+
+<br/>
+
+The degrees of freedom for this paired-samples *t*-test were as follows:
+
+$$N-1=`r N`-1=`r N-1`$$
+<br/>
+
+---
+
+<br/>
+
+The formula for obtaining *t* in a paired-samples *t*-test is as follows:
+
+$$t=\frac{\sum{D}}{\sqrt{\frac{n\sum{D^2}-(\sum{D})^2}{n-1}}}$$
+
+
+<br/>
+
+So you need the following: $n$, $\sum{D}$, and $\sum{D}^2$.
+
+The easiest way to do this is create a table and calculate all the necessary components:
+
+<br/>
+
+| $Name$ | $Exam1$ | $Exam2$ | $D$ | $D^2$ |
+|:-:|:-:|:-:|:-:|:-:|
+| `r dwp$Student[1]` | `r dwp$Exam1[1]` | `r dwp$Exam2[1]` | `r dwp$D[1]` | `r dwp$Dsq[1]` |
+| `r dwp$Student[2]` | `r dwp$Exam1[2]` | `r dwp$Exam2[2]` | `r dwp$D[2]` | `r dwp$Dsq[2]` |
+| `r dwp$Student[3]` | `r dwp$Exam1[3]` | `r dwp$Exam2[3]` | `r dwp$D[3]` | `r dwp$Dsq[3]` |
+| `r dwp$Student[4]` | `r dwp$Exam1[4]` | `r dwp$Exam2[4]` | `r dwp$D[4]` | `r dwp$Dsq[4]` |
+| `r dwp$Student[5]` | `r dwp$Exam1[5]` | `r dwp$Exam2[5]` | `r dwp$D[5]` | `r dwp$Dsq[5]` |
+| `r dwp$Student[6]` | `r dwp$Exam1[6]` | `r dwp$Exam2[6]` | `r dwp$D[6]` | `r dwp$Dsq[6]` |
+| `r dwp$Student[7]` | `r dwp$Exam1[7]` | `r dwp$Exam2[7]` | `r dwp$D[7]` | `r dwp$Dsq[7]` |
+| `r dwp$Student[8]` | `r dwp$Exam1[8]` | `r dwp$Exam2[8]` | `r dwp$D[8]` | `r dwp$Dsq[8]` |
+| `r dwp$Student[9]` | `r dwp$Exam1[9]` | `r dwp$Exam2[9]` | `r dwp$D[9]` | `r dwp$Dsq[9]` |
+| `r dwp$Student[10]` | `r dwp$Exam1[10]` | `r dwp$Exam2[10]` | `r dwp$D[10]` | `r dwp$Dsq[10]` |
+| `r if (N>10) {dwp$Student[11]} else {""}` | `r if (N>10) {dwp$Exam1[11]} else {""}` | `r if (N>10) {dwp$Exam2[11]} else {""}` | `r if (N>10) {dwp$D[11]} else {""}` | `r if (N>10) {dwp$Dsq[11]} else {""}` |
+| `r if (N>11) {dwp$Student[12]} else {""}` | `r if (N>11) {dwp$Exam1[12]} else {""}` | `r if (N>11) {dwp$Exam2[12]} else {""}` | `r if (N>11) {dwp$D[12]} else {""}` | `r if (N>11) {dwp$Dsq[12]} else {""}` |
+| `r if (N>12) {dwp$Student[13]} else {""}` | `r if (N>12) {dwp$Exam1[13]} else {""}` | `r if (N>12) {dwp$Exam2[13]} else {""}` | `r if (N>12) {dwp$D[13]} else {""}` | `r if (N>12) {dwp$Dsq[13]} else {""}` |
+| $n =\ $ `r N` |  |  | $\sum{D}\:$ `r round(sum(dwp$D),4)` | $\sum{D}^2\:$ `r round(sum(dwp$Dsq),4)` |
+
+<br/>
+
+Once you have the sums (the bottom row) you put the sums into the equation for the solution:
+<br/>
+$$t=\frac{\sum{D}}{\sqrt{\frac{n\sum{D^2}-(\sum{D})^2}{n-1}}}$$
+<br/>
+
+So the obtained *t* is calculated as follows:
+
+$$=\frac{`r SumD`}{\sqrt{\frac{[(`r N`)\times(`r Sum_Dsq`)]-(`r SumD`)^2}{`r N`-1}}}$$
+<br/>
+
+$$=\frac{`r SumD`}{\sqrt{\frac{`r n_Sum_Dsq`-`r SumD_sq`}{`r N-1`}}}$$
+<br/>
+
+$$=\frac{`r SumD`}{\sqrt{\frac{`r num_SEsq`}{`r N-1`}}}$$
+<br/>
+
+$$=\frac{`r SumD`}{\sqrt{`r SEsq`}}$$
+<br/>
+
+$$=\frac{`r SumD`}{`r SE`}$$
+<br/>
+
+$$=`r t`$$
+
+---
+
+Another way to calculate the obtained value of a paired-samples *t*-test is with the following formula, which relies on the mean of *D* ($\bar{D}=`r muD`$) and the standard deviation ($SD_D=`r sdD`$). (Note that there could be tiny differences in the obtained value between this equation and the equation used above)
+
+$$t=\frac{\bar{D}}{SE_{\bar{D}}}=\frac{\bar{D}}{SD_D\Big/\sqrt{n}}$$
+<br/>
+
+$$t=\frac{`r muD`}{`r sdD`\Big/\sqrt{`r N`}}$$
+<br/>
+
+$$=\frac{`r muD`}{`r sdD`\Big/`r sqrt_N`}$$
+<br/>
+
+$$=\frac{`r muD`}{`r seD`}$$
+<br/>
+
+$$=`r t_simpler`$$
+
+--- 
+
+<!-- The difference scores could be plotted as follows, with the raw scores (`Exam1` and `Exam2`) occupying the first two columns, and the difference scores the third column, where the dashed line represents a difference of zero (the null hypothesis): -->
+
+
+```{r, echo=F, warning=F, message=F, eval=F}
+
+## THIS IS NOT WORKING (30 OCT 2021)
+
+estimate <- esci::jmvEstimatePairedMeanDifference(
+    data = dat_wide,
+    switch ="fromraw",
+    measure1 = Exam1,
+    measure2 = Exam2,
+    var.equal = F,
+    m1 = NULL,
+    m2 = NULL,
+    s1 = NULL,
+    s2 = NULL,
+    n = NULL,
+    r = NULL,
+    ymin = "400",
+    ymax = "1000",
+    ylab = "grade",
+    xlab = "Exams and Diff Scores",
+    g1lab = "Exam 1",
+    g2lab = "Exam 2"
+    )
+
+plotEstimatedDifference(estimate)
+```
+
+---
+
+***Reference***
+
+Navarro, D. J. & Foxcroft, D. R. (2019). Learning statistics with *jamovi*: A tutorial for psychology students and other beginners. (Version 0.70). DOI: [10.24384/hgc3-7p15](10.24384/hgc3-7p15) [Available from url:
+[http://learnstatswithjamovi.com](http://learnstatswithjamovi.com)]
+
+```{r SolutionList, echo=F, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+Meta-information
+================
+extype: mchoice
+exsolution: `r mchoice2string(solutions)`
+exname: pairedTtest

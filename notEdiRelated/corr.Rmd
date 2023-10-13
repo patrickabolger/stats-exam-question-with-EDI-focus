@@ -1,0 +1,422 @@
+---
+title: "correlations"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("truncnorm", "tibble", "dplyr", "magrittr", "exams", "kableExtra", "ggplot2")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r data generation, echo = FALSE, message=F, warning=F, results = "hide"}
+
+N <- sample(10:12,1) # random number between 10 and 12
+Cons <- round(rtruncnorm(N, 1, 5, 4.17, 0.53),2)
+error <- rnorm(N, 0, 30) # down from 104 in original (p. 472)
+# This allows me to keep the same regression coefficient
+
+FICO <- 694 + # 694 in original study (table 1, p. 473)
+  45.97*Cons + # from table 2, p. 474 
+  error
+
+# Remove decimal places for FICO
+FICO <- round(FICO,0)
+
+# Put into a data frame for display
+
+d <- as_tibble(cbind(FICO, Cons))
+
+# For formula 1 with z-scores
+meanFICO <- round(mean(FICO),4)
+sdFICO <- round(sd(FICO),4)
+zFICO <- round(((FICO-meanFICO)/(sdFICO)),4)
+
+meanCons <- round(mean(Cons),4)
+sdCons <- round(sd(Cons),4)
+zCons <- round(((Cons-meanCons)/(sdCons)),4)
+
+zFzC <- round(zFICO*zCons,4)
+rz <- round(sum(zFzC)/(N-1),3)
+
+# For formula 2 with raw scores
+X <- round(FICO,4)
+Y <- round(Cons,4)
+Xsq <- round(X^2,4)
+Ysq <- round(Y^2,4)
+XY <- round(X*Y,4)
+
+rlong_num <- N*(sum(XY))-(sum(X)*sum(Y))
+rlong_den <- sqrt(((N*(sum(Xsq)))-(sum(X))^2)*((N*(sum(Ysq)))-(sum(Y))^2))
+rlong <- round(rlong_num/rlong_den,3)
+
+# Officially from the cor.test function
+
+test <- cor.test(FICO, Cons)
+
+```
+
+# Question
+
+Bernerth, Taylor, Walker, and Whitman (2012) studied the effect of the
+*Big Five* personality traits (*Neuroticism*, *Conscientiousness*,
+*Extraversion*, *Agreeableness*, and *Openness*; Likert scale from 1-5)
+on FICO ("credit rating") credit scores (ranging from 300 - 850) in an
+attempt to elucidate to employers what FICO scores may or may not
+suggest about people applying for employment. Among other things, they
+found that, with a group of 113 participants, FICO scores (*M* = 694.45,
+*SD* = 104.22) correlated significantly with the *Big-5* personality
+trait *Conscientiousness* (*M* = 4.17, *SD* = 0.53). Specifically, the
+two variables correlated with a Pearson's *r* of .20, a positive
+correlation: *r*(111) = .20, *p* \< .05.
+
+You want to replicate this portion of the study with a small number of
+participants, so you recruit `r N` participants who are willing to take
+the same *Big-5* personality-trait survey, as well as provide you their
+FICO scores.
+
+------------------------------------------------------------------------
+
+**Calculations**
+
+The raw scores of your `r N` participants are below. For the FICO scores
+(some of which may go beyond the maximum possible), the mean is
+`r round(meanFICO,4)` (*SD* = `r round(sdFICO,4)`)). For the Big-5
+characteristic *Conscientiousness*, the mean is `r round(meanCons,4)`
+(*SD* = `r round(sdCons,4)`). Calculate Pearson's *r* for the
+association between these two variables. Round to ***FOUR*** decimal
+places at every step, with your final answer rounded to ***THREE***
+decimal places.
+
+```{r DisplayRawScores, echo = FALSE, message=F, warning=F, fig.cap=''}
+d %>% 
+  kable(digits=c(3), align = "c") %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
+------------------------------------------------------------------------
+
+<br/>
+
+**TRUE/FALSE Questions**
+
+Now that you have calculated Pearson's *r*, answer the questions below.
+Check the box to indicate **TRUE**, and leave it blank to indicate
+**FALSE**.
+
+> To answer all the questions, you will need to refer to this [Pearson's
+> r lookup
+> table](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#table-for-pearsons-r)
+
+------------------------------------------------------------------------
+
+<br/>
+
+```{r QuestionVectorSize, echo=F, results = "hide"}
+questions <- character(4)
+solutions <- logical(4)
+explanations <- character(4)
+```
+
+```{r QuestionGeneration, echo=F, results = "hide"}
+# Create a false df, t, and p value above or below the true values
+p <- round(test$p.value,3)
+df <- test$parameter
+r <- round(test$estimate,3)
+abs_r <- abs(r)
+rcrit <- ifelse(df==8,.632, 
+                ifelse(df==9,.602,
+                       ifelse(df==10,.576,
+                                            NA)))
+# ^^ specific to the N setting, hard coded
+# 
+fls_df <- sample(c(N-4,N-3,N-1,N,N+1,N+2,N+3), 1)
+fls_r <- round(sample(c(r - .005*r, r + .005*r),1), 3)
+fls_rcrit <- round(sample(c(rcrit - .01*rcrit, rcrit + .01*rcrit),1), 3)
+
+# Question 1 (df)
+if(runif(1) > 0.5) {
+  questions[1] <- paste0("The **degrees of freedom** are **less** than $",fmt(fls_df,0),"$.")
+  solutions[1] <- df < fls_df
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The degrees of freedom are $",fmt(df,0),"$, and hence, ",ifelse(solutions[1], "**are**", "are **not**")," less than $",fmt(fls_df,0),"$.")
+} else {
+  questions[1] <- paste0("The **degrees of freedom** are **greater** than $",fmt(fls_df,0),"$.")
+  solutions[1] <- df > fls_df
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The degrees of freedom are $",fmt(df,0),"$, and hence, ",ifelse(solutions[1], "**are**", "are **not**")," greater than $",fmt(fls_df,0),"$.")
+}
+
+# Question 2 (obtained r)
+if(runif(1) > 0.5) {
+    questions[2] <- paste0("The obtained value for *r* is **less** than $",fmt(fls_r,3),"$.")
+    solutions[2] <- r < fls_r
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *r* is $",fmt(r,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," less than $",fmt(fls_r,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *r* is **greater** than $",fmt(fls_r,3),"$.")
+    solutions[2] <- r > fls_r
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *r* is $",fmt(r,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," greater than $",fmt(fls_r,3),"$.")
+  }
+
+# Question 3 (critical value for r)
+if(runif(1) > 0.5) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **less** than $",fmt(fls_rcrit,3),"$.")
+    solutions[3] <- rcrit < fls_rcrit
+    explanations[3] <- paste0("The correct answer is ",solutions[4],". The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, ",ifelse(solutions[3], "**is**", "is **not**")," less than $",fmt(fls_rcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **greater** than $",fmt(fls_rcrit,3),"$.")
+    solutions[3] <- rcrit > fls_rcrit
+    explanations[3] <- paste0("The correct answer is ",solutions[3],". The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, ",ifelse(solutions[3], "**is**", "is **not**")," greater than $",fmt(fls_rcrit,3),"$.")
+  }
+
+# Question 4 (significance)
+questions[4] <- paste0("The results of the correlation (Pearson's *r*) are statistically significant.")
+solutions[4] <- abs_r >= rcrit
+explanations[4] <- paste0("The correct answer is ",solutions[4],". The absolute value of the obtained value for *r* is $",fmt(abs_r,3),"$, and hence, ",ifelse(solutions[4], "**is**", "is **not**")," greater than or equal to the critical value, $",fmt(rcrit,3),"$.")
+
+```
+
+```{r ifAllFalseMakeOneTRUE}
+i <- 0
+if(all(solutions==FALSE)) {
+i <- sample.int(4,1)
+}
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(df < fls_df) {
+  questions[1] <- paste0("The **degrees of freedom** are **less** than $",fmt(fls_df,0),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The degrees of freedom are $",fmt(df,0),"$, and hence, are less than $",fmt(fls_df,0),"$.")
+  } else {
+    questions[1] <- paste0("The **degrees of freedom** are **greater** than $",fmt(fls_df,0),"$.")
+    explanations[1] <- paste0("The correct answer is TRUE. The degrees of freedom are $",fmt(df,0),"$, and hence, are greater than $",fmt(fls_df,0),"$.")
+  }
+} else if (i==2) {
+    solutions[2] <- TRUE
+    if(r < fls_r) {
+    questions[2] <- paste0("The obtained value for *r* is **less** than $",fmt(fls_r,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *r* is $",fmt(r,3),"$, and hence, is less than $",fmt(fls_r,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *r* is **greater** than $",fmt(fls_r,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *r* is $",fmt(r,3),"$, and hence, is greater than $",fmt(fls_r,3),"$.")
+  }
+} else if (i==3) {
+    solutions[3] <- TRUE
+    if(rcrit < fls_rcrit) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **less** than $",fmt(fls_rcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, is less than $",fmt(fls_rcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **greater** than $",fmt(fls_rcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, is greater than $",fmt(fls_rcrit,3),"$.")
+  }
+} else if (i==4) {
+    solutions[4] <- TRUE
+    if (abs_r >= rcrit) {
+questions[4] <- paste0("The results of the correlation (Pearson's *r*) are statistically significant.")
+explanations[4] <- paste0("The correct answer is TRUE. The absolute value of the obtained value for *r* is $",fmt(abs_r,3),"$, and hence, is greater than or equal to the critical value, $",fmt(rcrit,3),"$.")
+  } else {
+questions[4] <- paste0("The results of the correlation (Pearson's *r*) are **not** statistically significant.")
+explanations[4] <- paste0("The correct answer is TRUE. The absolute value of the obtained value for *r* is $",fmt(abs_r,3),"$, and hence, is less than the critical value, $",fmt(rcrit,3),"$.")
+  }
+}
+
+rm(i)
+
+```
+
+```{r ifAllTrueMakeOneFALSE}
+j <- 0
+if(all(solutions==TRUE)) {
+j <- sample.int(4,1)
+}
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(df > fls_df) {
+  questions[1] <- paste0("The **degrees of freedom** are **less** than $",fmt(fls_df,0),"$.")
+  explanations[1] <- paste0("The correct answer is FALSE. The degrees of freedom are $",fmt(df,0),"$, and hence, are greater than $",fmt(fls_df,0),"$.")
+  } else {
+    questions[1] <- paste0("The **degrees of freedom** are **greater** than $",fmt(fls_df,0),"$.")
+    explanations[1] <- paste0("The correct answer is FALSE. The degrees of freedom are $",fmt(df,0),"$, and hence, are less than $",fmt(fls_df,0),"$.")
+  }
+} else if (j==2) {
+    solutions[2] <- FALSE
+    if(r > fls_r) {
+    questions[2] <- paste0("The obtained value for *r* is **less** than $",fmt(fls_r,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The obtained value for *r* is $",fmt(r,3),"$, and hence, is greater than $",fmt(fls_r,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *r* is **greater** than $",fmt(fls_r,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The obtained value for *r* is $",fmt(r,3),"$, and hence, is less than $",fmt(fls_r,3),"$.")
+  }
+} else if (j==3) {
+    solutions[3] <- FALSE
+    if(rcrit > fls_rcrit) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **less** than $",fmt(fls_rcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE. The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, is greater than $",fmt(fls_rcrit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *r* is **greater** than $",fmt(fls_rcrit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE. The critical value (alpha = .05) for *r* with $",fmt(df,0),"$ degrees of freedom is $",fmt(rcrit,3),"$, and hence, is less than $",fmt(fls_rcrit,3),"$.")
+  }
+} else if (j==4) {
+    solutions[4] <- FALSE
+    if (abs_r < rcrit) {
+questions[4] <- paste0("The results of the correlation (Pearson's *r*) are statistically significant.")
+explanations[4] <- paste0("The correct answer is FALSE. The absolute value of the obtained value for *r* is $",fmt(abs_r,3),"$, and hence, is less than the critical value, $",fmt(rcrit,3),"$.")
+  } else {
+questions[4] <- paste0("The results of the correlation (Pearson's *r*) are **not** statistically significant.")
+explanations[4] <- paste0("The correct answer is FALSE. The absolute value of the obtained value for *r* is $",fmt(abs_r,3),"$, and hence, is greater than or equal to the critical value, $",fmt(rcrit,3),"$.")
+  }
+}
+
+rm(j)
+
+```
+
+```{r QuestionList, echo=F, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+# Solution
+
+The degrees of freedom for a Pearson's *r* is $N-2$. Thus, for the
+current data set it is $N-2=`r N`-2=`r df`$.
+
+<br/>
+
+The obtained value for Pearson's *r* is calculated with any of the
+following formulas.
+
+Using *z*-scores:
+
+## $$r=\frac{\sum{z_{x_i}z_{y_i}}}{n-1}$$
+
+Using raw scores:
+
+$$r=\frac{n\sum{XY}-\sum{X}\sum{Y}}{\sqrt{\Big[n\sum{X^2-\big(\sum{X}\big)^2}\Big]\Big[n\sum{Y^2}-\big(\sum{Y}\big)^2\Big]}}$$
+
+(***NOTE***: There may be slight rounding-error differences between the
+two approaches above. But in bench-testing, this difference was never
+more than a .001 difference. This minuscule difference is not enough to
+affect any TRUE/FALSE answers.)
+
+------------------------------------------------------------------------
+
+Here is the solution using *z*-scores:
+
+|               $x_i$                |             $\bar{x}$              |              $s_x$               |              $z_{x_i}$              |          $z_{x_i}z_{y_i}$          |              $z_{y_i}$              |              $s_y$               |             $\bar{y}$              |               $y_i$                |
+|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+|            `r FICO[1]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[1]`             |            `r zFzC[1]`             |            `r zCons[1]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[1]`             |
+|            `r FICO[2]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[2]`             |            `r zFzC[2]`             |            `r zCons[2]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[2]`             |
+|            `r FICO[3]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[3]`             |            `r zFzC[3]`             |            `r zCons[3]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[3]`             |
+|            `r FICO[4]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[4]`             |            `r zFzC[4]`             |            `r zCons[4]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[4]`             |
+|            `r FICO[5]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[5]`             |            `r zFzC[5]`             |            `r zCons[5]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[5]`             |
+|            `r FICO[6]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[6]`             |            `r zFzC[6]`             |            `r zCons[6]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[6]`             |
+|            `r FICO[7]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[7]`             |            `r zFzC[7]`             |            `r zCons[7]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[7]`             |
+|            `r FICO[8]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[8]`             |            `r zFzC[8]`             |            `r zCons[8]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[8]`             |
+|            `r FICO[9]`             |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[9]`             |            `r zFzC[9]`             |            `r zCons[9]`             |            `r sdCons`            |            `r meanCons`            |            `r Cons[9]`             |
+|            `r FICO[10]`            |            `r meanFICO`            |            `r sdFICO`            |            `r zFICO[10]`            |            `r zFzC[10]`            |            `r zCons[10]`            |            `r sdCons`            |            `r meanCons`            |            `r Cons[10]`            |
+| `r if (N>10) {FICO[11]} else {""}` | `r if (N>10) {meanFICO} else {""}` | `r if (N>10) {sdFICO} else {""}` | `r if (N>10) {zFICO[11]} else {""}` | `r if (N>10) {zFzC[11]} else {""}` | `r if (N>10) {zCons[11]} else {""}` | `r if (N>10) {sdCons} else {""}` | `r if (N>10) {meanCons} else {""}` | `r if (N>10) {Cons[11]} else {""}` |
+| `r if (N>11) {FICO[12]} else {""}` | `r if (N>11) {meanFICO} else {""}` | `r if (N>11) {sdFICO} else {""}` | `r if (N>11) {zFICO[12]} else {""}` | `r if (N>11) {zFzC[12]} else {""}` | `r if (N>11) {zCons[12]} else {""}` | `r if (N>11) {sdCons} else {""}` | `r if (N>11) {meanCons} else {""}` | `r if (N>11) {Cons[12]} else {""}` |
+|                                    |                                    |                                  |                                     |   $\sum$ `r round(sum(zFzC),4)`    |                                     |                                  |                                    |                                    |
+
+Now you just need to divide this number by $n-1$:
+
+$$r_{x,y}=\frac{\sum{z_{x_i}z_{y_i}}}{n-1}$$ <br/>
+$$=\frac{`r round(sum(zFzC),4)`}{`r N`-1}$$ <br/>
+$$=\frac{`r round(sum(zFzC),4)`}{`r N-1`}$$ <br/>
+$$=`r round((sum(zFzC)/(N-1)),3)`$$ <br/>
+
+------------------------------------------------------------------------
+
+Here is the solution using raw scores
+
+|               $X$               |              $Y$               |              $X^2$               |              $Y^2$               |              $XY$               |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|            `r X[1]`             |            `r Y[1]`            |            `r Xsq[1]`            |            `r Ysq[1]`            |            `r XY[1]`            |
+|            `r X[2]`             |            `r Y[2]`            |            `r Xsq[2]`            |            `r Ysq[2]`            |            `r XY[2]`            |
+|            `r X[3]`             |            `r Y[3]`            |            `r Xsq[3]`            |            `r Ysq[3]`            |            `r XY[3]`            |
+|            `r X[4]`             |            `r Y[4]`            |            `r Xsq[4]`            |            `r Ysq[4]`            |            `r XY[4]`            |
+|            `r X[5]`             |            `r Y[5]`            |            `r Xsq[5]`            |            `r Ysq[5]`            |            `r XY[5]`            |
+|            `r X[6]`             |            `r Y[6]`            |            `r Xsq[6]`            |            `r Ysq[6]`            |            `r XY[6]`            |
+|            `r X[7]`             |            `r Y[7]`            |            `r Xsq[7]`            |            `r Ysq[7]`            |            `r XY[7]`            |
+|            `r X[8]`             |            `r Y[8]`            |            `r Xsq[8]`            |            `r Ysq[8]`            |            `r XY[8]`            |
+|            `r X[9]`             |            `r Y[9]`            |            `r Xsq[9]`            |            `r Ysq[9]`            |            `r XY[9]`            |
+|            `r X[10]`            |           `r Y[10]`            |           `r Xsq[10]`            |           `r Ysq[10]`            |         `r X[10]*Y[10]`         |
+| `r if (N>10) {X[11]} else{""}`  | `r if (N>10) {Y[11]} else{""}` | `r if (N>10) {Xsq[11]} else{""}` | `r if (N>10) {Ysq[11]} else{""}` | `r if (N>10) {XY[11]} else{""}` |
+| `r if (N>11) {X[12]} else {""}` | `r if (N>11) {Y[12]} else{""}` | `r if (N>11) {Xsq[12]} else{""}` | `r if (N>11) {Ysq[12]} else{""}` | `r if (N>11) {XY[12]} else{""}` |
+|   $\sum$ `r round(sum(X),3)`    |   $\sum$ `r round(sum(Y),3)`   |   $\sum$ `r round(sum(Xsq),3)`   |   $\sum$ `r round(sum(Ysq),3)`   |   $\sum$ `r round(sum(XY),3)`   |
+
+<br/> Plugging these numbers into the following equation,...
+
+$$r=\frac{n\sum{XY}-\sum{X}\sum{Y}}{\sqrt{\Big[n\sum{X^2-\big(\sum{X}\big)^2}\Big]\Big[n\sum{Y^2}-\big(\sum{Y}\big)^2\Big]}}$$
+<br/> ...we get the following: <br/>
+
+$$r=\frac{`r N`(`r sum(XY)`)-(`r sum(X)`)(`r sum(Y)`)}{\sqrt{\Big[`r N`(`r sum(Xsq)`)-\big(`r sum(X)`\big)^2\Big]\Big[`r N`(`r sum(Ysq)`)-\big(`r sum(Y)`\big)^2\Big]}}$$
+<br/>
+
+$$r=\frac{`r round(N*sum(XY),4)`-`r round(sum(X)*sum(Y),4)`}{\sqrt{\Big[`r round(N*sum(Xsq),4)`-`r round(sum(X)^2,4)`\Big]\Big[`r round(N*sum(Ysq),4)`-`r round(sum(Y)^2,4)`\Big]}}$$
+<br/>
+
+$$r=\frac{`r round(N*sum(XY)-sum(X)*sum(Y),4)`}{\sqrt{\Big[`r round(N*sum(Xsq)-sum(X)^2,4)`\Big]\Big[`r round(N*sum(Ysq)-sum(Y)^2,4)`\Big]}}$$
+<br/>
+
+$$r=\frac{`r round(N*sum(XY)-sum(X)*sum(Y),4)`}{\sqrt{`r round((N*sum(Xsq)-sum(X)^2)*(N*sum(Ysq)-sum(Y)^2),4)`}}$$
+<br/>
+
+$$r=\frac{`r round(N*sum(XY)-sum(X)*sum(Y),4)`}{`r round(sqrt( (N*sum(Xsq)-sum(X)^2)*(N*sum(Ysq)-sum(Y)^2)),4)`}$$
+<br/>
+
+$$r=`r round(((N*sum(XY))-(sum(X)*sum(Y)))/(sqrt((N*sum(Xsq)-sum(X)^2)*(N*sum(Ysq)-sum(Y)^2))),3)`$$
+
+------------------------------------------------------------------------
+
+To get the critical value (two-tailed) for *r* with $\alpha=.05$, you
+need to refer to a critical-values table for *r* like here:
+<https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#table-for-pearsons-r>
+
+Recall that the results of this correlation (Pearson's *r*) are as
+follows:
+
+$$r_{x,y}(`r round(df,0)`) = `r round(r,4)`,p=`r round(p,4)`$$
+
+(though you weren't asked to calculate the exact *p*-value)
+
+------------------------------------------------------------------------
+
+On a scatterplot, the data would look like the following:
+
+```{r, echo=F, warning=F, message=F}
+d %>% ggplot(aes(scale(Cons), scale(FICO))) +
+  geom_point(color="#500000") +
+  geom_smooth(method = lm, color = "#500000")
+```
+
+------------------------------------------------------------------------
+
+**Reference**
+
+Bernerth, J. B., Taylor, S. G., Walker, H. J., Whitman, D. S. (2012). An
+empirical investigation of dispositional antecedents and
+performance-related outcomes of credit scores. *Journal of Applied
+Psychology*, *97*(2), 469-478.
+
+```{r SolutionList, echo=F, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+# Meta-information
+
+extype: mchoice exsolution: `r mchoice2string(solutions)` exname:
+correlation

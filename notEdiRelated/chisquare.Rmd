@@ -1,0 +1,321 @@
+---
+title: "chisquare"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("tibble", "dplyr", "forcats", "magrittr", "exams", "kableExtra", "ggplot2")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r data generation, echo = FALSE, message=F, warning=F, results = "hide"}
+d01 <- c(
+  rep("Freshman", sample(35:45,1)), 
+  rep("Sophomore", sample(25:40,1)), 
+  rep("Junior", sample(15:35,1)),
+  rep("Senior", sample(15:35,1))
+  )
+
+d01 <- as_tibble(d01)
+N <- nrow(d01)
+d01 <- d01 %>% rename(`Class Level` = value)
+d02 <- d01 %>% rename(`ClassLevel` = `Class Level`)
+
+s01 <- d01 %>%
+  group_by(`Class Level`) %>%
+  summarize(`Count` = n())
+
+s02 <- d02 %>%
+  group_by(`ClassLevel`) %>%
+  summarize(`Count` = n())
+
+test <- chisq.test(table(d01$`Class Level`), p = c(1/4, 1/4, 1/4, 1/4))
+
+# for plotting a pie chart
+s03 <- s01 %>%
+  group_by(`Class Level`) %>%
+  ungroup() %>%
+  mutate(percentage = round(`Count`/sum(`Count`),2)*100,
+         lab.pos = cumsum(percentage)-.5*percentage)
+
+```
+
+# Question
+
+You're the Head Director of a major student organization at Texas A&M. Out of curiosity, you wonder whether you have a balance of students across class levels. There are `r N` students in your organization. So you count the number of freshmen, sophomores, juniors, and seniors. Do you have an even balance?
+
+The counts of students in each class level are listed below.
+
+|     Freshmen     |    Sophomore     |      Junior      |      Senior      |
+|:----------------:|:----------------:|:----------------:|:----------------:|
+| `r s01$Count[1]` | `r s01$Count[4]` | `r s01$Count[2]` | `r s01$Count[3]` |
+
+------------------------------------------------------------------------
+
+**Calculations**
+
+Calculate a chi-square *goodness-of-fit* test for these counts. At each stage of your calculations, round to ***FOUR*** decimal places. But your final answer should be rounded to ***THREE*** decimal places.
+
+------------------------------------------------------------------------
+
+**TRUE/FALSE Questions**
+
+Now that you have calculated these statistics, answer the questions below. Check the box to indicate **TRUE**, and leave it blank to indicate **FALSE**.
+
+You can use the following webpage for the critical values:
+
+[Critical values for chi-square](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#chi2-table)
+
+------------------------------------------------------------------------
+
+<br/>
+
+```{r QuestionVectorSize, echo=F, results = "hide"}
+questions <- character(4)
+solutions <- logical(4)
+explanations <- character(4)
+```
+
+```{r QuestionGeneration, echo=F, results = "hide"}
+# Create a false Expected Value, X2, and p value above or below the true values
+E <- nrow(d01)/4
+fls_E <- sample(c(E+1, E-1),1)
+
+X2 <- round(test$statistic,4)
+fls_X2 <- sample(c(X2-runif(1), X2+runif(1)),1)
+
+p <- round(test$p.value, 4)
+fls_p <- sample(c(p-.01, p+.01),1)
+
+X2crit <- abs(round(qchisq(.05, test$parameter, lower.tail=F),4))
+fls_X2crit <- sample(c(X2crit-runif(1, min=.1), X2crit+runif(1, min=.1)),1)
+
+df=3
+
+# Question 1 (Expected Value)
+if(runif(1) > 0.5) {
+  questions[1] <- paste0("The expected value is **less** than $",fmt(fls_E,3),"$.")
+  solutions[1] <- E < fls_E
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The expected value is $",fmt(E,3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," less than $",fmt(fls_E,3),"$.")
+} else {
+  questions[1] <- paste0("The expected value is **greater** than $",fmt(fls_E,3),"$.")
+  solutions[1] <- E > fls_E
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The expected value is $",fmt(E,3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," greater than $",fmt(fls_E,3),"$.")
+}
+
+# Question 2 (obtained X2)
+if(runif(1) > 0.5) {
+    questions[2] <- paste0("The obtained value for *chi-square* is **less** than $",fmt(fls_X2,3),"$.")
+    solutions[2] <- X2 < fls_X2
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," less than $",fmt(fls_X2,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *chi-square* is **greater** than $",fmt(fls_X2,3),"$.")
+    solutions[2] <- X2 > fls_X2
+    explanations[2] <- paste0("The correct answer is ",solutions[2],". The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, ",ifelse(solutions[2], "**is**", "is **not**")," greater than $",fmt(fls_X2,3),"$.")
+  }
+
+# Question 3 (critical value for X2)
+if(runif(1) > 0.5) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **less** than $",fmt(fls_X2crit,3),"$.")
+    solutions[3] <- X2crit < fls_X2crit
+    explanations[3] <- paste0("The correct answer is ",solutions[3],". The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, ",ifelse(solutions[3], "**is**", "is **not**")," less than $",fmt(fls_X2crit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **greater** than $",fmt(fls_X2crit,3),"$.")
+    solutions[3] <- X2crit > fls_X2crit
+    explanations[3] <- paste0("The correct answer is ",solutions[3],". The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, ",ifelse(solutions[3], "**is**", "is **not**")," greater than $",fmt(fls_X2crit,3),"$.")
+  }
+
+# Question 4 (significance)
+questions[4] <- paste0("The results of the *chi-square* test are statistically significant.")
+solutions[4] <- X2 >= X2crit
+explanations[4] <- paste0("The correct answer is ",solutions[4],". The  obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, ",ifelse(solutions[4], "**is**", "is **not**")," greater than or equal to the critical value, $",fmt(X2crit,3),"$.")
+
+```
+
+```{r IfAllFalsesMakeOneTRUE}
+#IF ALL FALSE, MAKE ONE TRUE
+
+i <- 0
+
+if(all(solutions==FALSE)) {
+  i <- sample.int(4,1)
+}
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(E < fls_E) {
+  questions[1] <- paste0("The expected value is **less** than $",fmt(fls_E,3),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The expected value is $",fmt(E,3),"$, and hence, **is** less than $",fmt(fls_E,3),"$.")
+  } else {
+    questions[1] <- paste0("The expected value is **greater** than $",fmt(fls_E,3),"$.")
+    explanations[1] <- paste0("The correct answer is TRUE. The expected value is $",fmt(E,3),"$, and hence, **is** greater than $",fmt(fls_E,3),"$.")
+  }
+} else if (i==2) {
+    solutions[2] <- TRUE
+    if(X2 < fls_X2) {
+    questions[2] <- paste0("The obtained value for *chi-square* is **less** than $",fmt(fls_X2,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, **is** less than $",fmt(fls_X2,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *chi-square* is **greater** than $",fmt(fls_X2,3),"$.")
+    explanations[2] <- paste0("The correct answer is TRUE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, **is** greater than $",fmt(fls_X2,3),"$.")
+  }
+} else if (i==3) {
+    solutions[3] <- TRUE
+    if(X2crit < fls_X2crit) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **less** than $",fmt(fls_X2crit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, **is** less than $",fmt(fls_X2crit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **greater** than $",fmt(fls_X2crit,3),"$.")
+    explanations[3] <- paste0("The correct answer is TRUE. The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, **is** greater than $",fmt(fls_X2crit,3),"$.")
+  }
+} else if (i==4) {
+    solutions[4] <- TRUE
+    if(X2 >= X2crit) {
+    questions[4] <- paste0("The results of the *chi-square* test are statistically significant.")
+    explanations[4] <- paste0("The correct answer is TRUE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, **is** greater than or equal to the critical value, $",fmt(X2crit,3),"$.")
+  } else {
+    questions[4] <- paste0("The results of the *chi-square* test are **not** statistically significant.")
+    explanations[4] <- paste0("The correct answer is TRUE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, is **not** greater than or equal to the critical value, $",fmt(X2crit,3),"$.")
+  }
+}
+
+rm(i)
+
+```
+
+```{r IfAllTruesMakeOneFALSE}
+j <- 0
+
+if(all(solutions==TRUE)) {
+  j <- sample.int(4,1)
+}
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(E > fls_E) {
+  questions[1] <- paste0("The expected value is **less** than $",fmt(fls_E,3),"$.")
+  explanations[1] <- paste0("The correct answer is FALSE. The expected value is $",fmt(E,3),"$, and hence, is **not** less than $",fmt(fls_E,3),"$.")
+  } else {
+    questions[1] <- paste0("The expected value is **greater** than $",fmt(fls_E,3),"$.")
+    explanations[1] <- paste0("The correct answer is FALSE. The expected value is $",fmt(E,3),"$, and hence, is **not** greater than $",fmt(fls_E,3),"$.")
+  }
+} else if (j==2) {
+    solutions[2] <- FALSE
+    if(X2 > fls_X2) {
+    questions[2] <- paste0("The obtained value for *chi-square* is **less** than $",fmt(fls_X2,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, is **not** less than $",fmt(fls_X2,3),"$.")
+  } else {
+    questions[2] <- paste0("The obtained value for *chi-square* is **greater** than $",fmt(fls_X2,3),"$.")
+    explanations[2] <- paste0("The correct answer is FALSE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, is **not** greater than $",fmt(fls_X2,3),"$.")
+  }
+} else if (j==3) {
+    solutions[3] <- FALSE
+    if(X2crit > fls_X2crit) {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **less** than $",fmt(fls_X2crit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE. The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, is **not** less than $",fmt(fls_X2crit,3),"$.")
+  } else {
+    questions[3] <- paste0("The critical value (alpha = .05) for *chi-square* is **greater** than $",fmt(fls_X2crit,3),"$.")
+    explanations[3] <- paste0("The correct answer is FALSE. The critical value (alpha = .05) for *chi-square* with $",fmt(df,0),"$ degrees of freedom is $",fmt(X2crit,3),"$, and hence, is **not** greater than $",fmt(fls_X2crit,3),"$.")
+  }
+} else if (j==4) {
+    solutions[4] <- FALSE
+    if(X2 <= X2crit) {
+    questions[4] <- paste0("The results of the *chi-square* test are statistically significant.")
+    explanations[4] <- paste0("The correct answer is FALSE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, is **not** greater than or equal to the critical value, $",fmt(X2crit,3),"$.")
+  } else {
+    questions[4] <- paste0("The results of the *chi-square* test are **not** statistically significant.")
+    explanations[4] <- paste0("The correct answer is FALSE. The obtained value for *chi-square* is $",fmt(X2,3),"$, and hence, **is** greater than or equal to the critical value, $",fmt(X2crit,3),"$.")
+  }
+}
+
+rm(j)
+
+```
+
+```{r QuestionList, echo=F, results = "asis"}
+
+answerlist(questions, markup = "markdown")
+
+```
+
+# Solution
+
+The results of this *chi-square* test are as follows:
+
+$$\chi^2(`r test$parameter`)=`r round(test$statistic,3)`, p=`r round(test$p.value,3)`$$
+
+------------------------------------------------------------------------
+
+The degrees of freedom for a a chi-square with $k$ categories is $k-1$. Thus, for the current data set it is as follows:
+
+$$k-1=`r 4`-1=`r 4-1`$$
+
+------------------------------------------------------------------------
+
+The obtained value for the $\chi^2$ goodness-of-fit test is calculated with the following formula:
+
+$$\chi^2=\sum\limits_{i=1}^k\frac{(O_i-E_i)^2}{E_i}$$
+
+------------------------------------------------------------------------
+
+The way to calculate this using the method covered in class is below:
+
+|                  $Category$                  | $Observed$ |                   $Expected$                    |                               $O-E$                                |                      $(O-E)^2$                      |                                                                $(O-E)^2\big/E$                                                                 |
+|:----------:|:----------:|:----------:|:----------:|:----------:|:----------:|
+| $`r s02$ClassLevel[1]`$ | $`r s02$Count[1]`$ |  $`r E`$   | $`r s02$Count[1]-E`$ | $`r (s02$Count[1]-E)^2`$ | $`r round(((s02$Count[1]-E)^2)/E,4)`$ | | $`r s02$ClassLevel[4]`$ | $`r s02$Count[4]`$ | $`r E`$ | $`r s02$Count[4]-E`$ |                                       $`r (s02$Count[4]-E)^2`$ | $`r round(((s02$Count[4]-E)^2)/E,4)`$                                        |
+| $`r s02$ClassLevel[2]`$ | $`r s02$Count[2]`$ |  $`r E`$   | $`r s02$Count[2]-E`$ | $`r (s02$Count[2]-E)^2`$ | $`r round(((s02$Count[2]-E)^2)/E,4)`$ | | $`r s02$ClassLevel[3]`$ | $`r s02$Count[3]`$ | $`r E`$ | $`r s02$Count[3]-E`$ |                                       $`r (s02$Count[3]-E)^2`$ | $`r round(((s02$Count[3]-E)^2)/E,4)`$                                        |
+|                                              |            |                                                 |                                                                    |                                                     | $\sum$ $`r round(sum((((test$observed[1]-E)^2)/E),(((test$observed[4]-E)^2)/E),(((test$observed[2]-E)^2)/E),(((test$observed[3]-E)^2)/E)),3)`$ |
+
+------------------------------------------------------------------------
+
+To get the critical value for *chi-square* with $\alpha=.05$, you go to <https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#chi2-table> and make the following choices:
+
+-   *Degrees of freedom*
+    -   $`r test$parameter`$
+-   *Alpha level*
+    -   0.05
+-   Then look at the intersection of those two values for the critical value
+
+------------------------------------------------------------------------
+
+In case you are interested, a bar chart of this data is below:
+
+```{r}
+d01 %>% ggplot(aes(`Class Level`)) +
+  geom_bar(fill="#500000")
+```
+
+<br/> Or a pie chart with percentages (out of a total of `r N`) instead of counts:
+
+```{r}
+s03 %>% ggplot(aes(x = "", y = percentage, fill = `Class Level`))+
+  geom_bar(stat = "identity", color="white")+
+  coord_polar("y", start = 200) +
+  geom_text(aes(y = lab.pos, label = paste(percentage,"%", sep = "")), col = "white") +
+  theme_void() +
+  scale_fill_brewer(palette = "Set2")
+```
+
+```{r SolutionList, echo=F, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+# Meta-information
+
+extype: mchoice exsolution: `r mchoice2string(solutions)` exname: X2GoF

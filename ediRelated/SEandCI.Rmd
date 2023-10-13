@@ -1,0 +1,293 @@
+---
+title: "Standard Error and Confidence Intervals"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
+```
+
+```{r LoadPackages, include=F}
+# install the packages below if not already installed
+pkgs <- (c("knitr", "exams", "magrittr", "kableExtra", "tibble", "dplyr", "ggplot2"))
+lapply(pkgs, library, character.only=T)
+
+```
+
+<!-- From Rattan, A., Levine, C. S., Dweck, C. S., & Eberhardt, J. L. (2012). Race and the fragility of the legal distinction between juveniles and adults. *PLoS ONE*, *7*(5), 1-5. -->
+
+```{r DataGeneration, results = "hide"}
+# DATA AND DATA-OBJECT GENERATION
+Black <- tibble(`Race of Juvenile`="Black", `Support for Life without Parole`=rnorm(floor(runif(1, min=400, max=450)), 4.40*100, (.07*sqrt(329)*100)))
+
+White <- tibble(`Race of Juvenile`="White", `Support for Life without Parole`=rnorm(floor(runif(1, min=400, max=450)), 4.18*100, (.09*sqrt(329)*100)))
+
+tib_X100 <- bind_rows(Black, White)
+
+tib <- tib_X100 %>% 
+  mutate(`Support for Life without Parole` = 
+           case_when(`Support for Life without Parole` > 500 ~ 6,
+                     `Support for Life without Parole` > 400 ~ 5,
+                     `Support for Life without Parole` > 300 ~ 4,
+                     `Support for Life without Parole` > 200 ~ 3,
+                     `Support for Life without Parole` > 100 ~ 2,
+                     TRUE ~ 1)
+  )
+
+rm(list=c("Black", "White", "tib_X100"))
+```
+
+Question
+========
+[Formulas & tables web page](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/)  
+Refer to *Unit 2* and *Normal (z-) tables*
+
+You replicate a study from Stanford University (Rattan, Levine, Dweck, & Eberhardt, 2012) that tested whether white students would support a sentence of *life without parole* for juveniles convicted of a non-lethal crime (1 = *not at all* / 6 = *extremely*). Before eliciting responses, the researchers provided participants with a hypothetical description of such a situation involving a 14-year-old boy with 17 prior juvenile convictions who brutally attacks an elderly woman. But for half the participants, the description was of a **black** 14-year-old, and for the other half, a **white** 14-year-old. Descriptive statistics are provided in the table below.
+
+```{r CreateDataSummary, results = "hide", message = F, warning = F}
+GrpDesc <- tib %>% 
+  group_by(`Race of Juvenile`) %>%
+  summarize(n = length(`Support for Life without Parole`), 
+            M = mean(`Support for Life without Parole`),
+            SD = sd(`Support for Life without Parole`),
+            SE = SD/sqrt(n),
+            `lower 95% CI` = M-1.96*SE,
+            `upper 95% CI` = M+1.96*SE
+            ) 
+```
+
+```{r DisplayDescriptivesTable, fig.cap=''}
+GrpDesc %>% 
+  select(1:4) %>%
+  kable(digits=c(0,0,3,3), align = "lccc") %>%
+  kable_styling(bootstrap_options = c("bordered"))
+```
+
+<br/>
+
+```{r QuestionVectorSize, results = "hide"}
+questions <- character(6)
+solutions <- logical(6)
+explanations <- character(6)
+```
+
+
+```{r SeparateStatsObjects, results = "hide"}
+n_BlkJuv <- GrpDesc$n[1]
+n_WhtJuv <- GrpDesc$n[2]
+n <- sum(n_BlkJuv, n_WhtJuv)
+mu_BlkJuv <- round(GrpDesc$M[1],3)
+mu_WhtJuv <- round(GrpDesc$M[2],3)
+sd_BlkJuv <- round(GrpDesc$SD[1],3)
+sd_WhtJuv <- round(GrpDesc$SD[2],3)
+se_BlkJuv <- round(GrpDesc$SE[1],3)
+se_WhtJuv <- round(GrpDesc$SE[2],3)
+ci_lb_BlkJuv <- round(GrpDesc$`lower 95% CI`[1],3)
+ci_ub_BlkJuv <- round(GrpDesc$`upper 95% CI`[1],3)
+ci_lb_WhtJuv <- round(GrpDesc$`lower 95% CI`[2],3)
+ci_ub_WhtJuv <- round(GrpDesc$`upper 95% CI`[2],3)
+```
+
+```{r QuestionGeneration}
+# Create different sample sizes to change standard error
+# Black juvenile
+fls_n_BlkJuv <- if(runif(1) > 0.5){ # "false" n for black juvenile
+  floor(runif(1, min=n_BlkJuv+50, max=n_BlkJuv+100))
+} else {
+ floor(runif(1, min=n_BlkJuv-100, max=n_BlkJuv-50)) 
+}
+fls_se_BlkJuv <- round(sd_BlkJuv/sqrt(fls_n_BlkJuv),3)
+
+# White juvenile (n copied from black juvenile)
+fls_n_WhtJuv <- fls_n_BlkJuv # "false" n for white juvenile
+fls_se_WhtJuv <- round(sd_WhtJuv/sqrt(fls_n_WhtJuv),3)
+
+# Apply the false se to the confidence interval
+fls_ci_lb_BlkJuv <- mu_BlkJuv-1.96*fls_se_BlkJuv
+fls_ci_ub_BlkJuv <- mu_BlkJuv+1.96*fls_se_BlkJuv
+fls_ci_lb_WhtJuv <- mu_WhtJuv-1.96*fls_se_WhtJuv
+fls_ci_ub_WhtJuv <- mu_WhtJuv+1.96*fls_se_WhtJuv
+
+# Question 1 (standard error for black juvenile)
+if(runif(1) > 0.5) {
+  questions[1] <- paste0("The **standard error** of the group that read about a **black juvenile** in the description is **less than or equal to** $",fmt(fls_se_BlkJuv,3),"$.")
+  solutions[1] <- round(se_BlkJuv,3) <= round(fls_se_BlkJuv,3)
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The standard error for the **black-juvenile** condition is $",fmt(se_BlkJuv,3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," less than or equal to $",fmt(fls_se_BlkJuv,3),"$.")
+} else {
+  questions[1] <- paste0("The **standard error** of the group that read about a **black juvenile** in the description is **greater than or equal to** $",fmt(fls_se_BlkJuv,3),"$.")
+  solutions[1] <- round(se_BlkJuv,3) >= round(fls_se_BlkJuv,3)
+  explanations[1] <- paste0("The correct answer is ",solutions[1],". The standard error for the **black-juvenile** condition is $",fmt(se_BlkJuv, 3),"$, and hence, ",ifelse(solutions[1], "**is**", "is **not**")," greater than or equal to $",fmt(fls_se_BlkJuv,3), "$.")
+}
+# Question 2 (95% CI [lower] for black juvenile)
+if(runif(1) > 0.5) {
+  questions[2] <- paste0("The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is **less than or equal to** $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  solutions[2] <- round(ci_lb_BlkJuv,3) <= round(fls_ci_lb_BlkJuv,3)
+  explanations[2] <- paste0("The correct answer is ",solutions[2],". For the **black-juvenile** condition, the 95% CI = [$",fmt(ci_lb_BlkJuv,3),"$",", $",fmt(ci_ub_BlkJuv,3),"$] and hence, the lower bound",ifelse(solutions[2], " **was**", " was **not**")," less than or equal to $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+} else {
+  questions[2] <- paste0("The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is **greater than or equal to** $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  solutions[2] <- round(ci_lb_BlkJuv,3) >= round(fls_ci_lb_BlkJuv,3)
+  explanations[2] <- paste0("The correct answer is ",solutions[2],". For the **black-juvenile** condition, the 95% CI = [$",fmt(ci_lb_BlkJuv,3),"$",", $",fmt(ci_ub_BlkJuv,3),"$] and hence, the lower bound",ifelse(solutions[2], " **was**", " was **not**")," greater than or equal to $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  }
+# Question 3 (95% CI [upper] for black juvenile)
+if(runif(1) > 0.5) {
+  questions[3] <- paste0("The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is **less than or equal to** $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  solutions[3] <- round(ci_ub_BlkJuv,3) <= round(fls_ci_ub_BlkJuv,3)
+  explanations[3] <- paste0("The correct answer is ",
+    solutions[3],". For the **black-juvenile** condition, the 95% CI = [$",fmt(ci_lb_BlkJuv,3),"$",", $",fmt(ci_ub_BlkJuv,3),"$] and hence, the upper bound",ifelse(solutions[3], " **was**", " was **not**")," less than or equal to $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+} else {
+  questions[3] <- paste0("The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is **greater than or equal to** $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  solutions[3] <- round(ci_ub_BlkJuv,3) >= round(fls_ci_ub_BlkJuv,3)
+  explanations[3] <- paste0("The correct answer is ",solutions[3],". For the **black-juvenile** condition, the 95% CI = [$",fmt(ci_lb_BlkJuv,3),"$",", $",fmt(ci_ub_BlkJuv,3),"$] and hence, the upper bound",ifelse(solutions[3], " **was**", " was **not**")," greater than or equal to $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  }
+# Question 4 (standard error for white juvenile)
+if(runif(1) > 0.5) {
+  questions[4] <- paste0("The **standard error** in the **white-juvenile** condition is **less than or equal to** $",fmt(fls_se_WhtJuv,3),"$.")
+  solutions[4] <- round(se_WhtJuv,3) <= round(fls_se_WhtJuv,3)
+  explanations[4] <- paste0("The correct answer is ",solutions[4],". ","The standard error in the **white-juvenile** condition is $",fmt(se_WhtJuv, 3),"$, and hence ",ifelse(solutions[4], "", "**not**")," less than or equal to $",fmt(fls_se_WhtJuv,3),"$.")
+} else {
+  questions[4] <- paste0("The **standard error** in the **white-juvenile** condition is **greater than or equal to $",fmt(fls_se_WhtJuv,3),"$.")
+  solutions[4] <- round(se_WhtJuv,3) >= round(fls_se_WhtJuv,3)
+  explanations[4] <- paste0("The correct answer is ",solutions[4],". The standard error in the **white-juvenile** condition is $",fmt(se_WhtJuv,3),"$, and hence ",ifelse(solutions[4], "", "**not**")," greater than or equal to $",fmt(se_WhtJuv,3), "$.")
+}
+# Question 5 (95% CI [lower] for white juvenile)
+if(runif(1) > 0.5) {
+  questions[5] <- paste0("The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is **less than or equal to** $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  solutions[5] <- round(ci_lb_WhtJuv,3) <= round(fls_ci_lb_WhtJuv,3)
+  explanations[5] <- paste0("The correct answer is ",solutions[5],". For the **white-juvenile** condition, the 95% CI = [$",fmt(ci_lb_WhtJuv,3),"$",", $",fmt(ci_ub_WhtJuv,3),"$] and hence, the lower bound",ifelse(solutions[5], " **was**", " was **not**")," less than or equal to $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+} else {
+  questions[5] <- paste0("The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is **greater than or equal to $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  solutions[5] <- round(ci_lb_WhtJuv,3) >= round(fls_ci_lb_WhtJuv,3)
+  explanations[5] <- paste0("The correct answer is ",solutions[5],". For the **white-juvenile** condition, the 95% CI = [$",fmt(ci_lb_WhtJuv,3),"$",", $",fmt(ci_ub_WhtJuv,3),"$] and hence, the lower bound",ifelse(solutions[5], " **was**", " was **not**")," greater than or equal to $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  }
+# Question 6 (95% CI [upper] for white juvenile)
+if(runif(1) > 0.5) {
+  questions[6] <- paste0("The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is **less than or equal to** $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  solutions[6] <- round(ci_ub_WhtJuv,3) <= round(fls_ci_ub_WhtJuv,3)
+  explanations[6] <- paste0("The correct answer is ",solutions[6],". ","For the **white-juvenile** condition, the 95% CI = [$",fmt(ci_lb_WhtJuv,3),"$",", $",fmt(ci_ub_WhtJuv,3),"$] and hence, the upper bound",ifelse(solutions[6], " **was**", " was **not**")," less than or equal to $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+} else {
+  questions[6] <- paste0("The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is **greater than or equal to $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  solutions[6] <- round(ci_ub_WhtJuv,3) >= round(fls_ci_ub_WhtJuv,3)
+  explanations[6] <- paste0("The correct answer is ",
+    solutions[6],". For the **white-juvenile** condition, the 95% CI = [$",fmt(ci_lb_WhtJuv,3),"$",", $",fmt(ci_ub_WhtJuv,3),"$] and hence, the upper bound",ifelse(solutions[6], " **was**", " was **not**")," greater than or equal to $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+}
+
+```
+
+```{r IfAllFalsesMakeOneTRUE}
+# If all three answers are FALSE, blackboard won't accept it
+# Solution below
+
+if(all(solutions==TRUE)) {
+  i <- 0
+} else i <- floor(runif(1, min=1, max=6))
+
+# Question 1 set to TRUE  
+if(i==1) {
+  solutions[1] <- TRUE
+  if(round(se_BlkJuv,3) <= round(fls_se_BlkJuv,3)) {
+  questions[1] <- paste0("The **standard error** of the group that read about a **black juvenile** in the description is **less than or equal to** $",fmt(fls_se_BlkJuv,3),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The standard error for the **black-juvenile** condition is $",fmt(se_BlkJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_se_BlkJuv,3),"$.")
+  } else {
+  questions[1] <- paste0("The **standard error** of the group that read about a **black juvenile** in the description is **greater** than $",fmt(fls_se_BlkJuv,3),"$.")
+  explanations[1] <- paste0("The correct answer is TRUE. The standard error for the **black-juvenile** condition is $",fmt(se_BlkJuv,3),"$, and hence, **is** greater than $",fmt(fls_se_BlkJuv,3),"$.")
+  }
+# Question 2 set to TRUE
+} else if (i==2) {
+    solutions[2] <- TRUE
+  if(round(ci_lb_BlkJuv,3) <= round(fls_ci_lb_BlkJuv,3)) {
+  questions[2] <- paste0("The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is **less than or equal to** $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  explanations[2] <- paste0("The correct answer is TRUE. The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is $",fmt(ci_lb_BlkJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  } else {
+  questions[2] <- paste0("The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is **greater** than $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  explanations[2] <- paste0("The correct answer is TRUE. The **lower bound** of the 95% confidence interval in the **black-juvenile** condition is $",fmt(ci_lb_BlkJuv,3),"$, and hence, **is** greater than $",fmt(fls_ci_lb_BlkJuv,3),"$.")
+  }
+# Question 3 set to TRUE
+} else if (i==3) {
+    solutions[3] <- TRUE
+  if(round(ci_ub_BlkJuv,3) <= round(fls_ci_ub_BlkJuv,3)) {
+  questions[3] <- paste0("The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is **less than or equal to** $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  explanations[3] <- paste0("The correct answer is TRUE. The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is $",fmt(ci_ub_BlkJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  } else {
+  questions[3] <- paste0("The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is **greater** than $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  explanations[3] <- paste0("The correct answer is TRUE. The **upper bound** of the 95% confidence interval in the **black-juvenile** condition is $",fmt(ci_ub_BlkJuv,3),"$, and hence, **is** greater than $",fmt(fls_ci_ub_BlkJuv,3),"$.")
+  }
+# Question 4 set to TRUE
+} else if (i==4) {
+  solutions[4] <- TRUE
+  if(round(se_WhtJuv,3) <= round(fls_se_WhtJuv,3)) {
+  questions[4] <- paste0("The **standard error** of the group that read about a **white juvenile** in the description is **less than or equal to** $",fmt(fls_se_WhtJuv,3),"$.")
+  explanations[4] <- paste0("The correct answer is TRUE. The standard error for the **white-juvenile condition** is $",fmt(se_WhtJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_se_WhtJuv,3),"$.")
+  } else {
+  questions[4] <- paste0("The **standard error** of the group that read about a **white juvenile** in the description is **greater** than $",fmt(fls_se_WhtJuv,3),"$.")
+  explanations[4] <- paste0("The correct answer is TRUE. The standard error for the **white-juvenile** condition is $",fmt(se_WhtJuv,3),"$, and hence, **is** greater than $",fmt(fls_se_WhtJuv,3),"$.")
+  }
+# Question 5 set to TRUE
+} else if (i==5) {
+    solutions[5] <- TRUE
+  if(round(ci_lb_WhtJuv,3) < round(fls_ci_lb_WhtJuv,3)) {
+  questions[5] <- paste0("The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is **less than or equal to** $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  explanations[5] <- paste0("The correct answer is TRUE. The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is $",fmt(ci_lb_WhtJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  } else {
+  questions[5] <- paste0("The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is **greater** than $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  explanations[5] <- paste0("The correct answer is TRUE. The **lower bound** of the 95% confidence interval in the **white-juvenile** condition is $",fmt(ci_lb_WhtJuv,3),"$, and hence, **is** greater than $",fmt(fls_ci_lb_WhtJuv,3),"$.")
+  }
+# Question 6 set to TRUE
+} else if (i==6) {
+    solutions[6] <- TRUE
+  if(round(ci_ub_WhtJuv,3) <= round(fls_ci_ub_WhtJuv,3)) {
+  questions[6] <- paste0("The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is **less than or equal to** $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  explanations[6] <- paste0("The correct answer is TRUE. The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is $",fmt(ci_ub_WhtJuv,3),"$, and hence, **is** less than or equal to $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  } else {
+  questions[6] <- paste0("The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is **greater** than $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  explanations[6] <- paste0("The correct answer is TRUE. The **upper bound** of the 95% confidence interval in the **white-juvenile** condition is $",fmt(ci_ub_WhtJuv,3),"$, and hence, **is** greater than $",fmt(fls_ci_ub_WhtJuv,3),"$.")
+  }
+}
+```
+
+
+Assuming a normal distribution, calculate the standard error and the confidence intervals for each of these two groups. Then check the boxes below that are true about that confidence interval.
+
+```{r questionlist, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+Solution
+=========
+The standard error is calculated by dividing the standard deviation by the square root of the number of participants in the respective condition. Here is the general formula, where *k* stands for a level (a group) in your experiment:  
+
+
+$$SE_k=\frac{SD_k}{\sqrt{n_k}}$$
+
+So the standard error for the *black-juvenile* condition is as follows:
+
+$$SE_{bj}=\frac{`r round(sd_BlkJuv,3)`}{\sqrt{`r n_BlkJuv`}}=\frac{`r round(sd_BlkJuv,3)`}{`r round(sqrt(n_BlkJuv),3)`}=`r round(sd_BlkJuv/sqrt(n_BlkJuv),3)`$$
+
+And the standard error for the *white-juvenile* condition is as follows:
+
+$$SE_{wj}=\frac{`r round(sd_WhtJuv,3)`}{\sqrt{`r n_WhtJuv`}}=\frac{`r round(sd_WhtJuv,3)`}{`r round(sqrt(n_WhtJuv),3)`}=`r round(sd_WhtJuv/sqrt(n_WhtJuv),3)`$$
+
+Assuming a normal distribution, the 95% confidence interval is the region between the lower and upper bounds defined by the following formula:  
+<br/>
+$$CI_{95\%} = \overline{X}_k \pm (1.96 \times SE_k)$$
+
+So the confidence interval for the *black-juvenile* condition is as follows:
+
+$$CI_{95\%\ (bj)} = `r mu_BlkJuv` \pm (1.96 \times `r se_BlkJuv`) = `r mu_BlkJuv` \pm `r round(1.96*se_BlkJuv,3)` = [`r round(mu_BlkJuv-1.96*se_BlkJuv,3)`,\ `r round(mu_BlkJuv+1.96*se_BlkJuv,3)`]$$
+
+And the confidence interval for the *white-juvenile* condition is as follows:
+
+$$CI_{95\%\ (wj)} = `r mu_WhtJuv` \pm (1.96 \times `r se_WhtJuv`) = `r mu_WhtJuv` \pm `r round(1.96*se_WhtJuv,3)` = [`r round(mu_WhtJuv-1.96*se_WhtJuv,3)`,\ `r round(mu_WhtJuv+1.96*se_WhtJuv,3)`]$$
+
+```{r solutionlist, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+Meta-information
+================
+extype: mchoice
+exsolution: `r mchoice2string(solutions)`
+exname: SEsAndCIs

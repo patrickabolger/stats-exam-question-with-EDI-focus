@@ -1,0 +1,322 @@
+---
+title: "Sums of Squares"
+output: html_document
+editor_options:
+  markdown:
+    canonical: false
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, message = NA)
+```
+
+```{r LoadPackages, include=F}
+
+# install the packages below if needed
+pkgs <- c("truncnorm", "tibble", "dplyr", "magrittr", "exams", "kableExtra", "ggplot2", "sjPlot", "car")
+lapply(pkgs, library, character.only=T)
+
+```
+
+```{r SuppressScientificNotation}
+options(scipen=999)
+```
+
+```{r dataGeneration, echo = FALSE, message=F, warning=F, results = "hide"}
+
+Temperature <- c(
+  rep("55", 3),
+  rep("65", 3),
+  rep("75", 3),
+  rep("85", 3)
+)
+
+TestScore <- c(
+  round(rnorm(3,72,6),0),
+  round(rnorm(3,82,6),0),
+  round(rnorm(3,85,6),0),
+  round(rnorm(3,70,6),0)
+)
+
+d01 <- as.data.frame(cbind(Temperature, TestScore))
+d01$Temperature <- as.factor(d01$Temperature)
+d02 <- d01 %>% rename(`Test Score` = TestScore)
+d02$`Test Score` <- as.numeric(d02$`Test Score`)
+#rm(d01)
+test <- anova(aov(`Test Score` ~ Temperature, data = d02))
+
+```
+
+```{r dataSolutions, echo = FALSE, message=F, warning=F, results = "hide"}
+
+d <- d01 
+d <- d %>% rename(x = Temperature, y = TestScore)
+d$y <- round(as.numeric(d$y),4)
+d$ybar <- round(mean(d$y),4)
+
+d <- d %>%
+  group_by(x) %>%
+  mutate(ybark = mean(y)) %>%
+  ungroup()
+
+d$ybark <- round(d$ybark,4)
+
+d$dev <- d$y-d$ybark
+d$dev <- round(d$dev,4)
+
+d$devSq <- d$dev^2
+d$devSq <- round(d$devSq,4)
+
+ssw <- sum(d$devSq)
+ssw <- round(ssw,3)
+
+#rm(d01)
+
+dG <- d %>%
+  group_by(x) %>%
+  summarize(ybark=mean(y), n=n())
+
+dG$ybark <- round(dG$ybark,4)
+
+dG$ybar <- mean(d$y)
+dG$ybar <- round(dG$ybar,4)
+
+dG$dev <- dG$ybark - dG$ybar
+dG$dev <- round(dG$dev,4)
+
+dG$devSq <- dG$dev^2
+dG$devSq <- round(dG$devSq,4)
+
+dG$WdevSq <- dG$n*dG$devSq
+dG$WdevSq <- round(dG$WdevSq,4)
+
+ssb <- sum(dG$WdevSq)
+ssb <- round(ssb,3)
+
+```
+
+# Question
+
+You conducted a study in which four groups of randomly selected students
+were given the same math exam (100 possible points) in rooms with
+different mean temperatures: 85, 75, 65, and 55 degrees. Their scores on
+the exams were recorded and analyzed by group. The data in the table
+below are the test scores you recorded by group.
+
+Your data are below:
+
+------------------------------------------------------------------------
+
+```{r DisplayRawScores, echo = FALSE, message=F, warning=F, fig.cap=''}
+d02 %>% 
+  kable(digits=c(3), align = "c") %>%
+  pack_rows("55 Degrees", 1, 3) %>%
+  pack_rows("65 Degrees", 4, 6) %>%
+  pack_rows("75 Degrees", 7, 9) %>%
+  pack_rows("85 Degrees", 10, 12) %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
+------------------------------------------------------------------------
+
+<br/>
+
+**Calculations**
+
+In preparation for a One-way ANOVA, calculate both the *Sum of Squares
+between* and the *Sum of Squares within*. Round to ***FOUR*** decimal
+places at each step. Round the final answer to ***THREE*** decimal
+places.
+
+The formulas for the two types of *Sums of Squares* can be found on
+[this
+webpage](https://patrickabolger.github.io/PSYC-301-Exam-Formulas/#f-ratio-for-a-oneway-anova)
+
+------------------------------------------------------------------------
+
+**TRUE/FALSE Questions**
+
+Now that you have calculated these statistics, answer the questions
+below. Check the box to indicate **TRUE**, and leave it blank to
+indicate **FALSE**.
+
+------------------------------------------------------------------------
+
+<br/>
+
+```{r QuestionVectorSize, echo=F, results = "hide"}
+questions <- character(2)
+solutions <- logical(2)
+explanations <- character(2)
+```
+
+```{r QuestionGeneration, echo=F, results = "hide"}
+# Create a false df, t, and p value above or below the true values
+
+fls_ssb <- round(sample(c(ssb - .005*ssb, ssb + .005*ssb),1), 3)
+fls_ssw <- round(sample(c(ssw - .005*ssw, ssw + .005*ssw),1), 3)
+
+# Question 1 (Sum of Squares Between)
+if(runif(1) > 0.5) {
+    questions[1] <- paste0("The *Sum of Squares between* is ***less*** than $",fmt(fls_ssb,3),"$.")
+    solutions[1] <- ssb < fls_ssb
+    explanations[1] <- paste0("The correct answer is ***",solutions[1],"***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, ",ifelse(solutions[1], "***is***", "is ***not***")," less than $",fmt(fls_ssb,3),"$.")
+  } else {
+    questions[1] <- paste0("The *Sum of Squares between* is ***greater*** than $",fmt(fls_ssb,3),"$.")
+    solutions[1] <- ssb > fls_ssb
+    explanations[1] <- paste0("The correct answer is ***",solutions[1],"***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, ",ifelse(solutions[1], "***is***", "is ***not***")," greater than $",fmt(fls_ssb,3),"$.")
+  }
+
+# Question 2 (Sum of Squares Within)
+if(runif(1) > 0.5) {
+    questions[2] <- paste0("The *Sum of Squares within* is ***less*** than $",fmt(fls_ssw,3),"$.")
+    solutions[2] <- ssw < fls_ssw
+    explanations[2] <- paste0("The correct answer is ***",solutions[2],"***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, ",ifelse(solutions[2], "***is***", "is ***not***")," less than $",fmt(fls_ssw,3),"$.")
+  } else {
+    questions[2] <- paste0("The *Sum of Squares within* is ***greater*** than $",fmt(fls_ssw,3),"$.")
+    solutions[2] <- ssw > fls_ssw
+    explanations[2] <- paste0("The correct answer is ***",solutions[2],"***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, ",ifelse(solutions[2], "***is***", "is ***not***")," greater than $",fmt(fls_ssw,3),"$.")
+  }
+
+```
+
+```{r ifAllFalseMakeOneTRUE}
+# Ensure that at least one answer above is TRUE
+
+i <- 0
+
+if(all(solutions==FALSE)) {
+i <- sample.int(2,1)
+}
+
+if(i==1) {
+  solutions[1] <- TRUE
+  if(ssb < fls_ssb) {
+  questions[1] <- paste0("The *Sum of Squares between* is ***less*** than $",fmt(fls_ssb,3),"$.")
+  explanations[1] <- paste0("The correct answer is ***TRUE***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, ***is*** less than $",fmt(fls_ssb,3),"$.")
+  } else {
+    questions[1] <- paste0("The *Sum of Squares between* is ***greater*** than $",fmt(fls_ssb,3),"$.")
+    explanations[1] <- paste0("The correct answer is ***TRUE***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, ***is*** greater than $",fmt(fls_ssb,3),"$.")
+  }
+} else if (i==2) {
+    solutions[2] <- TRUE
+    if(ssw < fls_ssw) {
+    questions[2] <- paste0("The *Sum of Squares within* is ***less*** than $",fmt(fls_ssw,3),"$.")
+    explanations[2] <- paste0("The correct answer is ***TRUE***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, ***is*** less than $",fmt(fls_ssw,3),"$.")
+  } else {
+    questions[2] <- paste0("The *Sum of Squares within* is ***greater*** than $",fmt(fls_ssw,3),"$.")
+    explanations[2] <- paste0("The correct answer is ***TRUE***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, ***is*** greater than $",fmt(fls_ssw,3),"$.")
+  }
+}
+
+rm(i)
+
+```
+
+```{r ifAllTrueMakeOneFALSE}
+# Ensure that at least one answer above is TRUE
+
+j <- 0
+
+if(all(solutions==TRUE)) {
+j <- sample.int(2,1)
+}
+
+if(j==1) {
+  solutions[1] <- FALSE
+  if(ssb > fls_ssb) {
+  questions[1] <- paste0("The *Sum of Squares between* is ***less*** than $",fmt(fls_ssb,3),"$.")
+  explanations[1] <- paste0("The correct answer is ***FALSE***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, is ***not*** less than $",fmt(fls_ssb,3),"$.")
+  } else {
+    questions[1] <- paste0("The *Sum of Squares between* is ***greater*** than $",fmt(fls_ssb,3),"$.")
+    explanations[1] <- paste0("The correct answer is ***FALSE***. The *Sum of Squares between* is $",fmt(ssb,3),"$, and hence, is ***not*** greater than $",fmt(fls_ssb,3),"$.")
+  }
+} else if (j==2) {
+    solutions[2] <- FALSE
+    if(ssw > fls_ssw) {
+    questions[2] <- paste0("The *Sum of Squares within* is ***less*** than $",fmt(fls_ssw,3),"$.")
+    explanations[2] <- paste0("The correct answer is ***FALSE***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, is ***not*** less than $",fmt(fls_ssw,3),"$.")
+  } else {
+    questions[2] <- paste0("The *Sum of Squares within* is ***greater*** than $",fmt(fls_ssw,3),"$.")
+    explanations[2] <- paste0("The correct answer is ***FALSE***. The *Sum of Squares within* is $",fmt(ssw,3),"$, and hence, is ***not*** greater than $",fmt(fls_ssw,3),"$.")
+  }
+}
+
+rm(j)
+
+```
+
+```{r QuestionList, echo=F, results = "asis"}
+answerlist(questions, markup = "markdown")
+```
+
+# Solution
+
+<br/>
+
+The formula for the *Sum of Squares between* is as follows:
+
+$$SS_b=\sum\limits_{k=1}^GN_k(\bar{Y}_k-\bar{Y})^2$$ <br/> Below is a
+table that corresponds to the template given in class to solve the *Sum
+of Squares between*:
+
+<br/>
+
+|  group $k$  | group mean ($\bar{Y}_k$) | grand mean $\bar{Y}$ | deviation $\bar{Y}_k-\bar{Y}$ | squared deviation $(\bar{Y}_k-\bar{Y})^2$ | group size $N_k$ | weighted squared deviation $N_k(\bar{Y}_k-\bar{Y})^2$ |
+|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|
+| `r dG$x[1]` |     `r dG$ybark[1]`      |    `r dG$ybar[1]`    |         `r dG$dev[1]`         |              `r dG$devSq[1]`              |   `r dG$n[1]`    |                   `r dG$WdevSq[1]`                    |
+| `r dG$x[2]` |     `r dG$ybark[2]`      |    `r dG$ybar[2]`    |         `r dG$dev[2]`         |              `r dG$devSq[2]`              |   `r dG$n[2]`    |                   `r dG$WdevSq[2]`                    |
+| `r dG$x[3]` |     `r dG$ybark[3]`      |    `r dG$ybar[3]`    |         `r dG$dev[3]`         |              `r dG$devSq[3]`              |   `r dG$n[3]`    |                   `r dG$WdevSq[3]`                    |
+| `r dG$x[4]` |     `r dG$ybark[4]`      |    `r dG$ybar[4]`    |         `r dG$dev[4]`         |              `r dG$devSq[4]`              |   `r dG$n[4]`    |                   `r dG$WdevSq[4]`                    |
+|             |                          |                      |                               |                                           |                  |                    $\sum$ `r ssb`                     |
+
+The *Sum of Squares between* is at the lower right in the table above.
+
+------------------------------------------------------------------------
+
+The formula for the *Sum of Squares within* is as follows:
+
+$$SS_w=\sum\limits_{k=1}^G\sum\limits_{i=1}^{N_k}(Y_{ik}-\bar{Y}_k)^2$$
+<br/> Below is a table that corresponds to the template given in class
+to solve the *Sum of Squares within*:
+
+<br/>
+
+| Group $k$ (degrees Fahrenheit) | Outcome $Y_{i_k}$ | Group mean $\bar{Y}_k$ | Deviation from group mean $Y_{i_k}-\bar{Y}_k$ | Squared deviation $(Y_{i_k}-\bar{Y}_k)^2$ |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|           `r d$x[1]`           |    `r d$y[1]`     |     `r d$ybark[1]`     |                 `r d$dev[1]`                  |              `r d$devSq[1]`               |
+|           `r d$x[2]`           |    `r d$y[2]`     |     `r d$ybark[2]`     |                 `r d$dev[2]`                  |              `r d$devSq[2]`               |
+|           `r d$x[3]`           |    `r d$y[3]`     |     `r d$ybark[3]`     |                 `r d$dev[3]`                  |              `r d$devSq[3]`               |
+|           `r d$x[4]`           |    `r d$y[4]`     |     `r d$ybark[4]`     |                 `r d$dev[4]`                  |              `r d$devSq[4]`               |
+|           `r d$x[5]`           |    `r d$y[5]`     |     `r d$ybark[5]`     |                 `r d$dev[5]`                  |              `r d$devSq[5]`               |
+|           `r d$x[6]`           |    `r d$y[6]`     |     `r d$ybark[6]`     |                 `r d$dev[6]`                  |              `r d$devSq[6]`               |
+|           `r d$x[7]`           |    `r d$y[7]`     |     `r d$ybark[7]`     |                 `r d$dev[7]`                  |              `r d$devSq[7]`               |
+|           `r d$x[8]`           |    `r d$y[8]`     |     `r d$ybark[8]`     |                 `r d$dev[8]`                  |              `r d$devSq[8]`               |
+|           `r d$x[9]`           |    `r d$y[9]`     |     `r d$ybark[9]`     |                 `r d$dev[9]`                  |              `r d$devSq[9]`               |
+|          `r d$x[10]`           |    `r d$y[10]`    |    `r d$ybark[10]`     |                 `r d$dev[10]`                 |              `r d$devSq[10]`              |
+|          `r d$x[11]`           |    `r d$y[11]`    |    `r d$ybark[11]`     |                 `r d$dev[11]`                 |              `r d$devSq[11]`              |
+|          `r d$x[12]`           |    `r d$y[12]`    |    `r d$ybark[12]`     |                 `r d$dev[12]`                 |              `r d$devSq[12]`              |
+|                                |                   |                        |                                               |              $\sum$ `r ssw`               |
+
+The *Sum of Squares within* is at the lower right in the table above.
+
+------------------------------------------------------------------------
+
+In case you are interested, below is a boxplot representation of
+`Test Score` by `Temperature` group:
+
+```{r, echo=F, warning=F, message=F}
+d02 %>% ggplot(aes(Temperature, `Test Score`)) +
+  geom_boxplot() +
+  geom_point()
+```
+
+```{r SolutionList, echo=F, results = "asis"}
+answerlist(explanations, markup = "markdown")
+```
+
+# Meta-information
+
+extype: mchoice exsolution: `r mchoice2string(solutions)` exname:
+SumsOfSquares
