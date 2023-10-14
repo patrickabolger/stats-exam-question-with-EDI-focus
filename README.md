@@ -1,4 +1,4 @@
-# stats-exam-questions-with-EDI-focus
+# stats-exam-questions
 
 These are statistics exam questions created with the *exams* package in *R*. A couple of the questions have a focus on equity, diversity, and inclusion. Those with and without foci on EDI are in separate folders.
 
